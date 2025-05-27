@@ -4,7 +4,7 @@
 
 <div align="center">
 
-[📘Tutorial](docs/rl_factory/en/main_tutorial.md) &#124; [🛠️Installation](docs/rl_factory/en/install.md) &#124; [🎨Framework](docs/rl_factory/en/framework_design.md); [🏆Model](https://huggingface.co/Simple-Efficient/RLFactory-Qwen3-8B-GRPO)
+[📘Tutorial](docs/rl_factory/en/main_tutorial.md) &#124; [🛠️Installation](docs/rl_factory/en/install.md) &#124; [🎨Framework](docs/rl_factory/en/framework_design.md) &#124; [🏆Model](https://huggingface.co/Simple-Efficient/RLFactory-Qwen3-8B-GRPO)
 
 </div>
 
@@ -47,10 +47,11 @@ We’ll keep a fast release cycle to quickly deliver and polish the upcoming fea
   + **Environment decouple**: define your tool-use envinroment easily (tools setup and reward function definition)
   + **Qwen3 Model support**: quickly train your agent using Qwen3 (much better than Qwen2.5 in tool-call)
   + **Efficient training**: 2x faster than existing frameworks for rapid model iteration (mainly through async tool-use)
-+ **Version 0.2** (within 2 weeks)
-  - **WebUI**: build a WebUI for data processing, tool & environment definition, training configuration, and project management
-  - **More efficient training**: support the AsyncLLMEngine for more efficient rollout
-  - **More models**: test more models (such as Deepseek, Llama, etc.) and add corresponding support configurations
++ **Version 0.2** (within 2 weeks) We are looking forward to more people participating in the development and construction together, to create a great Agenetic Training community. Please feel free to contact us.
+  - **WebUI**: build a WebUI for data processing, tool & environment definition, training configuration, and project management [#2](https://github.com/Simple-Efficient/RL-Factory/issues/2)
+  - **More efficient training**: support the AsyncLLMEngine for more efficient rollout and User Simulation (for multi-turn user interaction training) [#4](https://github.com/Simple-Efficient/RL-Factory/issues/4)
+  - **More models**: test more models (such as Deepseek, Llama, etc.) and add corresponding support configurations [#5](https://github.com/Simple-Efficient/RL-Factory/issues/5)
+  - **Process Reward**: use process reward to better guide the tool-call behavior of your model [#6](https://github.com/Simple-Efficient/RL-Factory/issues/6)
   - **More applications**: help create more demos (such as [TravelPlanner](https://github.com/OSU-NLP-Group/TravelPlanner)) to adapt to more benchmarks
 
 ## User Instructions
@@ -115,11 +116,12 @@ We welcome all users and developers to contribute code to RLFactory. If you have
 2. Contact us via email at chaijiajun@meituan.com or gjyin@outlook.com.
 3. Join our WeChat group and become a pioneer in Agent training!
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/b91d9f2b-4eeb-4023-a933-3f6ed012a76f" alt="Description" style="width:200px; height:auto;"/>
+  <img src="https://github.com/user-attachments/assets/a21f7044-9a55-400c-bbae-3a19a164640c" alt="Description" style="width:200px; height:auto;"/>
   <img src="https://github.com/user-attachments/assets/e59f1a14-faee-4ec8-97cd-5e90ff34a43d" alt="Description" style="width:200px; height:auto;"/>
 </div>
-
 
 ## Acknowledgement
 This repo benefits from [verl](https://github.com/volcengine/veRL), [Search-R1](https://github.com/PeterGriffinJin/Search-R1), [Qwen-Agent](https://github.com/QwenLM/Qwen-Agent). Thanks for their wonderful works. We will also introduce [TRL](https://github.com/huggingface/trl) in the future to further expand the applicability of our framework.
 
+## Star History
+[![Star History Chart](https://api.star-history.com/svg?repos=Simple-Efficient/RL-Factory&type=Date)](https://www.star-history.com/#Simple-Efficient/RL-Factory&Date) 
