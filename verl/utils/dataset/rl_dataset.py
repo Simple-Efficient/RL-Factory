@@ -190,7 +190,7 @@ class RLHFDataset(Dataset):
 
             # There's a trap here, multi_modal_inputs has to be a dict, not BatchFeature
             row_dict["multi_modal_data"] = multi_modal_data
-            row_dict["multi_modal_inputs"] = dict(model_inputs)
+            row_dict["multiv_modal_inputs"] = dict(model_inputs)
 
             # second_per_grid_ts isn't used for training, just for mrope
             row_dict["multi_modal_inputs"].pop("second_per_grid_ts", None)
