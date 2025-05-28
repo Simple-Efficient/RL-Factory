@@ -18,6 +18,8 @@ Below are the outputs from a fine-tuned LLM and the corresponding ground truth l
 Model outputs: <output>{}</output> 
 Ground Truth: <gt>{}</gt>
 """
+        # extract only the answer for the reward judge model
+        solution_str = self._extract_answer(solution_str)
         # If you need use the reasoning model to generate the reward, you need to modify the following code
         result = reward_tokenizer.apply_chat_template([
                 {'role': 'system', 'content': system_content},
@@ -39,3 +41,18 @@ Ground Truth: <gt>{}</gt>
             return result
         else:
             return 0.0
+    
+    def _extract_answer(self, input_str) -> str:
+        start_tag = "<answer>" # for default answer tags
+        end_tag = "</answer>"
+        extracted_strings = ""
+        start_index = input_str.find(start_tag)
+        while start_index != -1:
+            end_index = input_str.find(end_tag, start_index)
+            if end_index != -1:
+                extracted_str = input_str[start_index + len(start_tag):end_index]
+                extracted_strings += extracted_str + "\n"
+                start_index = input_str.find(start_tag, end_index)
+            else:
+                break
+        return extracted_strings

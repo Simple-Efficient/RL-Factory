@@ -70,6 +70,7 @@ We’ll keep a fast release cycle to quickly deliver and polish the upcoming fea
   pip3 install llama_index bs4 pymilvus infinity_client codetiming tensordict==0.6 omegaconf torchdata==0.10.0 hydra-core easydict dill python-multipart mcp
   pip3 install -e . --no-deps
   pip3 install faiss-gpu-cu12   # Optional, needed for end-to-end search model training with rag_server
+  pip3 install nvidia-cublas-cu12==12.4.5.8  # Optional, needed while encountering ray worker died issue during training
   ```
   <div style="padding:10px; background-color:#fff3cd; color:#856404; border:1px solid #ffeeba; border-radius:4px;">
   <strong>Note:</strong> Currently, only Qwen models are tested.

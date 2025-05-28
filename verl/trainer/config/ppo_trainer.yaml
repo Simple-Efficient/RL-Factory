@@ -140,6 +140,7 @@ actor_rollout_ref:
     name: base
     tool_manager: qwen3
     mcp_mode: stdio
+    tool_name_selected: []  # selected tools for using when call a sse MCP server; default [] will call all tools
     config_path: envs/configs/mcp_tools.pydata
     enable_thinking: True
     max_prompt_length: 2048
