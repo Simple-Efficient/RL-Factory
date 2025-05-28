@@ -13,6 +13,10 @@ from envs.utils.util import ToolServiceError, DocParserError
 from envs.utils.mcp_manager import MCPManager as SSEMCPManager
 from qwen_agent.tools import TOOL_REGISTRY, MCPManager, BaseTool
 from qwen_agent.llm.schema import ASSISTANT, SYSTEM, USER, FUNCTION, ContentItem
+import yaml
+import random
+import os
+import openai  # 你需要安装 openai 包
 
 
 def parse_mcp_tools_config(file_path):
@@ -40,6 +44,11 @@ class QwenManager(ToolManager):
             'lang': 'en',
             'max_input_tokens': 10000
         }
+        # 加载 simulated_user/user.yaml
+        parent_dir = os.path.dirname(os.path.dirname(__file__))
+        user_yaml_path = os.path.join(parent_dir, 'simulated_user', 'user.yaml')
+        with open(user_yaml_path, 'r', encoding='utf-8') as f:
+            self._sim_user_feedback_cfg = yaml.safe_load(f)
 
     def get_tool(self, name_or_short_name: str):
         """通过名称或简写获取工具
@@ -357,3 +366,44 @@ class QwenManager(ToolManager):
             raise ValueError('Invalid mode: {}'.format(mode))
         
         return prompt_with_chat_template
+    
+    async def _single_feedback(self, response: str) -> dict:
+        cfg = self._sim_user_feedback_cfg
+        prob = cfg.get('probability', 0.5)
+        feedbacks = cfg.get('feedbacks', [])
+        persona = cfg.get('persona', '')
+
+        if random.random() < prob and response:
+            if persona:
+                try:
+                    import openai
+                    prompt = (
+                        f"你的人物设定如下：\n{persona}\n\n"
+                        f"请你以该人物身份，对下面AI的回答进行评价和反馈，要求简明扼要、具体、有指导性：\n"
+                        f"AI的回答：{response}\n"
+                        f"你的反馈："
+                    )
+                    completion = await asyncio.to_thread(
+                        openai.ChatCompletion.create,
+                        model="gpt-4",
+                        messages=[
+                            {"role": "system", "content": "你是一个用户反馈生成器。"},
+                            {"role": "user", "content": prompt}
+                        ],
+                        max_tokens=128,
+                        temperature=0.7,
+                    )
+                    feedback = completion['choices'][0]['message']['content'].strip()
+                except Exception as e:
+                    feedback = random.choice(feedbacks) if feedbacks else "请完善你的回答。"
+            else:
+                feedback = random.choice(feedbacks) if feedbacks else "请完善你的回答。"
+        else:
+            feedback = ""
+
+        return {'role': USER, 'content': feedback}
+
+    async def simulated_user_feedback(self, responses: List[str]) -> list:
+        tasks = [self._single_feedback(response) for response in responses]
+        results = await asyncio.gather(*tasks)
+        return results

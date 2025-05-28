@@ -15,6 +15,8 @@ class Env(ABC):
         self.tool_manager = TOOL_MANAGER_REGISTRY[tool_manager_name](verl_config=config)
         self.max_prompt_length = config.get('max_prompt_length', 2048)
         self.use_verify_tool = False
+        self.use_simulated_user_feedback = config.get('use_simulated_user_feedback', False)
+
         
     def verify_tool(self, data_source, solution_str, ground_truth, extra_info):
         # If you need a tool to evaluate the generated response, you need to modify the following code
@@ -56,7 +58,10 @@ class Env(ABC):
 
         for action, tool_result in zip(cur_actions, tool_results):
             if action == 'answer':
-                temp_next_obs, temp_done, temp_valid_action, temp_is_tool = '', True, 1, 0
+                if self.use_simulated_user_feedback:
+                    temp_next_obs = self.tool_manager.simulated_user_feedback(responses,tokenizer)
+                else:
+                    temp_next_obs, temp_done, temp_valid_action, temp_is_tool = '', True, 1, 0
             elif action == 'error':
                 temp_next_obs = self.tool_manager.get_prompt(
                     input_data=tool_result, 
@@ -82,6 +87,8 @@ class Env(ABC):
             is_tool.append(temp_is_tool)
         
         return next_obs, dones, valid_action, is_tool
+
+
 
     def compute_score(self, reward_rollout_wg, reward_tokenizer, tokenizer, data: DataProto, if_val=False):
         if reward_rollout_wg is not None:

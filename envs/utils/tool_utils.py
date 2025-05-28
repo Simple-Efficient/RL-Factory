@@ -61,7 +61,7 @@ class ToolUtils:
             responses=responses_str, tokenizer=self.tokenizer
         )
 
-        # encode infos for next prompt
+        # encode infos for next prompt TODO: can tokenize be faster?
         info_tokens = self.tokenizer(infos_str).input_ids
         next_prompt_token = []
         next_prompt_length = []
