@@ -226,7 +226,6 @@ class QwenManager(ToolManager):
         # select used tools within one sse link before tool learning
         if self.verl_config.mcp_mode == 'sse' and len(self.verl_config.tool_name_selected) != 0:
             try:
-                assert type(self.verl_config.tool_name_selected) == list, AssertionError('Illegal variable define of tool_name_selected, list requested.')
                 self.tool_map = {each_tool_name: self.tool_map[each_tool_name] for each_tool_name in self.verl_config.tool_name_selected}
             except:
                 raise ValueError('Selected tool names are not valid or available sse tool list error. Available tool names: {}'.format(self.tool_map.keys()))
