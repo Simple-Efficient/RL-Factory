@@ -366,7 +366,9 @@ class QwenManager(ToolManager):
             
             temp_prompt_with_chat_template = tokenizer.apply_chat_template(
                 conversation=base_chat + chat, tools=[func.function for func in self.tool_map.values()], 
-                tokenize=False, add_generation_prompt=add_generation_prompt, enable_thinking=self.verl_config.enable_thinking
+                tokenize=False, add_generation_prompt=ad
+                ]lmo
+            o_generation_prompt, enable_thinking=self.verl_config.enable_thinking
             )
             prompt_with_chat_template = temp_prompt_with_chat_template.replace(base_prompt, '')
         else:
@@ -410,7 +412,25 @@ class QwenManager(ToolManager):
 
         return {'role': USER, 'content': feedback}
 
-    async def simulated_user_feedback(self, responses: List[str]) -> list:
-        tasks = [self._single_feedback(response) for response in responses]
-        results = await asyncio.gather(*tasks)
-        return results
+    async def simulated_user_feedback(self, responses: List[str], tokenizer, user_feedback_flag, next_obs, dones, valid_action, is_tool) -> list:
+        tmp_responses = []
+        simulaited_idx = []
+        for idx, use_feedback in enumerate(user_feedback_flag):
+            if use_feedback == 1:
+                tmp_responses.append(responses[idx])
+                simulaited_idx.append(idx)
+
+        if len(tmp_responses) > 0:
+            tasks = [self._single_feedback(response) for response in tmp_responses]
+            results = await asyncio.gather(*tasks)
+            for idx, result in zip(simulaited_idx, results):
+                assert isinstance(next_obs[idx], str)
+                next_obs[idx] += tokenizer.apply_chat_template(
+                    conversation=[{'role': USER, 'content': result}],
+                    tokenize=False,
+                    add_generation_prompt=True
+                )
+                dones[idx] = False
+                valid_action[idx] = 1
+                is_tool[idx] = 0
+        return next_obs, dones, valid_action, is_tool

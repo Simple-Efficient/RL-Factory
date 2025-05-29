@@ -16,6 +16,7 @@ class Env(ABC):
         self.max_prompt_length = config.get('max_prompt_length', 2048)
         self.use_verify_tool = False
         self.use_simulated_user_feedback = config.get('use_simulated_user_feedback', False)
+        self.user_feedback_prob = 0.5
 
         
     def verify_tool(self, data_source, solution_str, ground_truth, extra_info):
@@ -55,11 +56,15 @@ class Env(ABC):
     def step(self, responses, tokenizer):
         cur_actions, tool_results = self.tool_manager.execute_actions(responses=responses)
         next_obs, dones, valid_action, is_tool = [], [], [], []
+        user_feedback_flag = []
 
         for action, tool_result in zip(cur_actions, tool_results):
             if action == 'answer':
                 if self.use_simulated_user_feedback:
-                    temp_next_obs = self.tool_manager.simulated_user_feedback(responses,tokenizer)
+                    if random.random() < self.user_feedback_prob:
+                        user_feedback_flag.append(1)
+                    else:
+                        user_feedback_flag.append(0)
                 else:
                     temp_next_obs, temp_done, temp_valid_action, temp_is_tool = '', True, 1, 0
             elif action == 'error':
@@ -80,12 +85,13 @@ class Env(ABC):
                 temp_done, temp_valid_action, temp_is_tool = False, 1, 1
             else:
                 raise ValueError('Unexpected action: {}'.format(action))
-            
             next_obs.append(temp_next_obs)
             dones.append(temp_done)
             valid_action.append(temp_valid_action)
             is_tool.append(temp_is_tool)
-        
+
+        if self.use_simulated_user_feedback:
+            next_obs, dones, valid_action, is_tool = self.tool_manager.simulated_user_feedback(responses, tokenizer, user_feedback_flag, next_obs, dones, valid_action, is_tool)
         return next_obs, dones, valid_action, is_tool
 
 
