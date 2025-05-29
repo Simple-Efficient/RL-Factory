@@ -130,3 +130,6 @@ tensorboard_log
 ckpt
 
 .hopeignore
+
+## RL-Factory
+tmp/

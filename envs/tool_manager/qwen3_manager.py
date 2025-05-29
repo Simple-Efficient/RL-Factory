@@ -16,7 +16,7 @@ from qwen_agent.llm.schema import ASSISTANT, SYSTEM, USER, FUNCTION, ContentItem
 import yaml
 import random
 import os
-import openai  # 你需要安装 openai 包
+
 
 
 def parse_mcp_tools_config(file_path):
@@ -44,11 +44,22 @@ class QwenManager(ToolManager):
             'lang': 'en',
             'max_input_tokens': 10000
         }
-        # 加载 simulated_user/user.yaml
-        parent_dir = os.path.dirname(os.path.dirname(__file__))
-        user_yaml_path = os.path.join(parent_dir, 'simulated_user', 'user.yaml')
-        with open(user_yaml_path, 'r', encoding='utf-8') as f:
-            self._sim_user_feedback_cfg = yaml.safe_load(f)
+        if self.use_simulated_user_feedback:
+            import datasets
+            from omegaconf import OmegaConf
+            parent_dir = os.path.dirname(os.path.dirname(__file__))
+            user_yaml_path = os.path.join(parent_dir, 'simulated_user', 'simulated_user.yaml')
+            yaml_config = OmegaConf.load(user_yaml_path)
+            self.user_feedback_prob = yaml_config.train.user_feedback_prob
+            data_file = yaml_config.train.data_file
+            if not os.path.isabs(data_file):
+                data_file = os.path.join(parent_dir, 'simulated_user', data_file)
+            if data_file.endswith('.jsonl'):
+                self.persona_dataset = datasets.load_dataset('jsonl', data_files=data_file)['train']
+            elif data_file.endswith('.json'):
+                self.persona_dataset = datasets.load_dataset('json', data_files=data_file)['train']
+            else:
+                raise ValueError(f"Unsupported file type: {data_file}")
 
     def get_tool(self, name_or_short_name: str):
         """通过名称或简写获取工具
@@ -351,11 +362,10 @@ class QwenManager(ToolManager):
         if mode == 'initial':
             chat = input_data
             prompt_with_chat_template = tokenizer.apply_chat_template(
-                conversation=chat, tokenize=False, tools=[func.function for func in self.tool_map.values()], 
+                conversation=chat, tokenize=False, tools=[func.function for func in self.tool_map.values()],
                 add_generation_prompt=add_generation_prompt, enable_thinking=self.verl_config.enable_thinking
             )
         elif mode in ['tool_call', 'assistant_response']:
-            # NOTE: the assistant response might not be used
             role = 'tool' if mode == 'tool_call' else ASSISTANT
             if type(input_data) == str:
                 chat = {'role': role, 'content': input_data}
@@ -363,56 +373,59 @@ class QwenManager(ToolManager):
                 chat = input_data
             else:
                 raise ValueError('Unexpected type of input_data {} ({})'.format(type(input_data), input_data))
-            
             temp_prompt_with_chat_template = tokenizer.apply_chat_template(
-                conversation=base_chat + chat, tools=[func.function for func in self.tool_map.values()], 
-                tokenize=False, add_generation_prompt=ad
-                ]lmo
-            o_generation_prompt, enable_thinking=self.verl_config.enable_thinking
+                conversation=base_chat + chat, tools=[func.function for func in self.tool_map.values()],
+                tokenize=False, add_generation_prompt=add_generation_prompt, enable_thinking=self.verl_config.enable_thinking
             )
             prompt_with_chat_template = temp_prompt_with_chat_template.replace(base_prompt, '')
         else:
             raise ValueError('Invalid mode: {}'.format(mode))
-        
         return prompt_with_chat_template
     
     async def _single_feedback(self, response: str) -> dict:
         cfg = self._sim_user_feedback_cfg
         prob = cfg.get('probability', 0.5)
         feedbacks = cfg.get('feedbacks', [])
-        persona = cfg.get('persona', '')
-
-        if random.random() < prob and response:
-            if persona:
-                try:
-                    import openai
-                    prompt = (
-                        f"你的人物设定如下：\n{persona}\n\n"
-                        f"请你以该人物身份，对下面AI的回答进行评价和反馈，要求简明扼要、具体、有指导性：\n"
-                        f"AI的回答：{response}\n"
-                        f"你的反馈："
-                    )
-                    completion = await asyncio.to_thread(
-                        openai.ChatCompletion.create,
-                        model="gpt-4",
-                        messages=[
-                            {"role": "system", "content": "你是一个用户反馈生成器。"},
-                            {"role": "user", "content": prompt}
-                        ],
-                        max_tokens=128,
-                        temperature=0.7,
-                    )
-                    feedback = completion['choices'][0]['message']['content'].strip()
-                except Exception as e:
-                    feedback = random.choice(feedbacks) if feedbacks else "请完善你的回答。"
+        persona = None
+        persona_str = None
+        try:
+            persona = random.choice(self.persona_dataset)
+            if isinstance(persona, dict):
+                persona_str = persona.get('persona') or str(persona)
             else:
-                feedback = random.choice(feedbacks) if feedbacks else "请完善你的回答。"
+                persona_str = str(persona)
+        except Exception:
+            persona_str = None
+        from openai import OpenAI
+        api_key = os.getenv("OPENAI_API_KEY",)
+        base_url = os.getenv("OPENAI_BASE_URL")
+        client = OpenAI(api_key=api_key, base_url=base_url)
+        if persona_str:
+            try:
+                prompt = (
+                    f"Your persona is as follows:\n{persona_str}\n\n"
+                    f"Please, in the role of this persona, evaluate and provide feedback on the following AI answer. The feedback should be concise, specific, and constructive:\n"
+                    f"AI's answer: {response}\n"
+                    f"Your feedback:"
+                )
+                completion = await asyncio.to_thread(
+                    client.chat.completions.create,
+                    model="anthropic.claude-3.5-sonnet-v2",
+                    messages=[
+                        {"role": "system", "content": "You are a user feedback generator."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    max_tokens=128,
+                    temperature=0.7,
+                )
+                feedback = completion.choices[0].message.content.strip()
+            except Exception as e:
+                feedback = random.choice(feedbacks) if feedbacks else "Please improve your answer."
         else:
-            feedback = ""
+            feedback = random.choice(feedbacks) if feedbacks else "Please improve your answer."
+        return feedback
 
-        return {'role': USER, 'content': feedback}
-
-    async def simulated_user_feedback(self, responses: List[str], tokenizer, user_feedback_flag, next_obs, dones, valid_action, is_tool) -> list:
+    def simulated_user_feedback(self, responses, tokenizer, user_feedback_flag, next_obs, dones, valid_action, is_tool):
         tmp_responses = []
         simulaited_idx = []
         for idx, use_feedback in enumerate(user_feedback_flag):
@@ -421,16 +434,21 @@ class QwenManager(ToolManager):
                 simulaited_idx.append(idx)
 
         if len(tmp_responses) > 0:
+            import asyncio
             tasks = [self._single_feedback(response) for response in tmp_responses]
-            results = await asyncio.gather(*tasks)
+            try:
+                loop = asyncio.get_running_loop()
+                results = loop.run_until_complete(asyncio.gather(*tasks))
+            except RuntimeError:
+                results = asyncio.run(asyncio.gather(*tasks))
             for idx, result in zip(simulaited_idx, results):
-                assert isinstance(next_obs[idx], str)
-                next_obs[idx] += tokenizer.apply_chat_template(
+                assert isinstance(next_obs[idx], List)
+                next_obs[idx].append(tokenizer.apply_chat_template(
                     conversation=[{'role': USER, 'content': result}],
                     tokenize=False,
                     add_generation_prompt=True
                 )
                 dones[idx] = False
                 valid_action[idx] = 1
-                is_tool[idx] = 0
+                is_tool[idx] = 1
         return next_obs, dones, valid_action, is_tool

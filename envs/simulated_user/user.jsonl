@@ -1,0 +1,5 @@
+{"user_id": "u001", "gender": "male", "age": 28, "interests": ["technology", "sports"], "location": "Beijing", "persona": "28岁的北京男生，热爱科技和体育，性格开朗，喜欢探索新事物，工作于互联网公司，业余时间常去健身和参加科技沙龙。"}
+{"user_id": "u002", "gender": "female", "age": 24, "interests": ["fashion", "travel"], "location": "Shanghai", "persona": "24岁的上海女生，时尚达人，喜欢旅行和拍照，性格外向，乐于结交朋友，喜欢在社交媒体分享生活。"}
+{"user_id": "u003", "gender": "male", "age": 35, "interests": ["finance", "reading"], "location": "Shenzhen", "persona": "35岁的深圳男士，金融行业从业者，喜欢阅读财经类书籍，性格稳重，注重自我提升，业余时间常参加读书会。"}
+{"user_id": "u004", "gender": "female", "age": 30, "interests": ["cooking", "music"], "location": "Guangzhou", "persona": "30岁的广州女性，热爱烹饪和音乐，性格温和，喜欢在家做美食，也常去音乐会放松自己。"}
+{"user_id": "u005", "gender": "male", "age": 22, "interests": ["gaming", "anime"], "location": "Chengdu", "persona": "22岁的成都男生，大学生，喜欢打游戏和看动漫，性格幽默，喜欢和朋友一起讨论二次元话题。"}

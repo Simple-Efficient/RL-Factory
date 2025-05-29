@@ -1,13 +1,14 @@
-set -e -x
-
-export MODEL_PATH=/your/path/to/Qwen/Qwen3-8B
-export REWARD_MODEL_PATH=/your/path/to/Qwen/QwQ-32B
+#!/bin/bash
+source /home/ma-user/modelarts/work/jjw/RL-Factory/env.sh
+export MODEL_PATH=/home/ma-user/modelarts/work/model/Qwen3-8B
+export REWARD_MODEL_PATH=/home/ma-user/modelarts/work/model/Qwen3-8B
 # export VLLM_ATTENTION_BACKEND=XFORMERS
-
+DATA=/home/ma-user/modelarts/work/jjw/Search-R1/data/nq_search
+export CUDA_VISIBLE_DEVICES="1,2"
 python3 -m verl.trainer.main_ppo\
     algorithm.adv_estimator=grpo\
-    data.train_files=data/nq_search/train.parquet\
-    data.val_files=data/nq_search/test.parquet\
+    data.train_files=$DATA/train.parquet\
+    data.val_files=$DATA/test.parquet\
     data.train_batch_size=128\
     data.max_prompt_length=4096\
     data.max_response_length=512\
@@ -39,7 +40,7 @@ python3 -m verl.trainer.main_ppo\
     actor_rollout_ref.env.enable_thinking=False\
     actor_rollout_ref.env.config_path=/your/path/to/envs/configs/mcp_tools.pydata\
     reward_rollout.if_use_reward_rollout=False\
-    reward_rollout.rollout.tensor_model_parallel_size=4\
+    reward_rollout.rollout.tensor_model_parallel_size=1\
     reward_rollout.rollout.gpu_memory_utilization=0.75\
     reward_rollout.rollout.model_name=$REWARD_MODEL_PATH\
     reward_rollout.rollout.free_cache_engine=False\
@@ -50,7 +51,7 @@ python3 -m verl.trainer.main_ppo\
     trainer.logger=['tensorboard']\
     trainer.project_name='GRPO_search'\
     trainer.experiment_name='search_with_thinking'\
-    trainer.n_gpus_per_node=8\
+    trainer.n_gpus_per_node=1\
     trainer.nnodes=1\
     trainer.val_before_train=False\
     trainer.default_local_dir=ckpt\

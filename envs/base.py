@@ -16,7 +16,6 @@ class Env(ABC):
         self.max_prompt_length = config.get('max_prompt_length', 2048)
         self.use_verify_tool = False
         self.use_simulated_user_feedback = config.get('use_simulated_user_feedback', False)
-        self.user_feedback_prob = 0.5
 
         
     def verify_tool(self, data_source, solution_str, ground_truth, extra_info):
@@ -61,7 +60,7 @@ class Env(ABC):
         for action, tool_result in zip(cur_actions, tool_results):
             if action == 'answer':
                 if self.use_simulated_user_feedback:
-                    if random.random() < self.user_feedback_prob:
+                    if random.random() < self.tool_manager.user_feedback_prob:
                         user_feedback_flag.append(1)
                     else:
                         user_feedback_flag.append(0)
