@@ -182,13 +182,18 @@ class TaskRunner:
             reward_fn.set_env_object(env_object)
         except Exception as e:
             print(f"Error setting env object for reward_fn: {e}")
-        
+        #stop token
+        reward_fn.stop_token=config.actor_rollout_ref.rollout.stop[0]
+
         val_reward_fn = load_reward_manager(config, tokenizer, num_examine=1)
         try:
             val_reward_fn.set_env_object(env_object)
             val_reward_fn.if_val = True
         except Exception as e:
             print(f"Error setting env object for val_reward_fn: {e}")
+
+        val_reward_fn.stop_token=config.actor_rollout_ref.rollout.stop[0]
+
         
         resource_pool_manager = ResourcePoolManager(resource_pool_spec=resource_pool_spec, mapping=mapping)
 

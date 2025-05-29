@@ -12,7 +12,8 @@ class ToolUtils:
         self.final_str = config.stop[-1] if config.stop else ''
         self.config_prompt_length = config.prompt_length
         self.config_response_length = config.response_length
-
+        self.stop_id = self.tokenizer.encode(config.stop[0], add_special_tokens=False)[0]
+        self.max_turns = config.max_turns
         self.max_prompt_length = config.prompt_length
 
         self.pad_token_id = meta_info.get('pad_token_id')
@@ -34,6 +35,7 @@ class ToolUtils:
             self.batch_size = output.batch.batch_size[0]
             self.loop_responses_token = [[] for _ in range(self.batch_size)]
             self.init_prompt_token = output.batch.get('prompts')
+            self.tool_use= [[] for _ in range(self.batch_size)]
             prompt_length = self.init_prompt_token.shape[-1]
             self.init_attention_mask = output.batch.get('attention_mask')[:,:prompt_length]  
 
@@ -46,20 +48,36 @@ class ToolUtils:
             batch_idxs = output.meta_info['index']
 
         responses = output.batch.get('responses')
+
+        process_response = []
         for idx, batch_idx in enumerate(batch_idxs):
             response_token = responses[idx]
             response_token_list = response_token[response_token != self.pad_token_id].tolist()
+            if self.env_object.use_process_reward:
+            # assure last token is stop token （add or change）
+                if response_token_list[-1] != self.stop_id:
+                    if len(response_token_list) != self.config_response_length:
+                        response_token_list.append(self.stop_id)
+                    else:
+                        response_token_list[-1] = self.stop_id
             self.loop_responses_token[batch_idx].append(response_token_list)
+            process_response.append(response_token_list)
 
         # decode responses for env step (detect tool call)
         responses_str = self.tokenizer.batch_decode(
-            output.batch.get('responses'),
+            process_response,
             skip_special_tokens=False,
         )
-        responses_str = [response.replace(self.tokenizer.pad_token, '') for response in responses_str]
-        infos_str, dones, _, _ = self.env_object.step(
+
+        infos_str, dones, _, _  = self.env_object.step(
             responses=responses_str, tokenizer=self.tokenizer
         )
+
+        #if not use_process_reward will be 0
+        if self.env_object.use_process_reward:
+            step_scores = self.env_object.get_step_reward(responses=responses_str)
+        else:
+            step_scores = [0] * len(responses_str)
 
         # encode infos for next prompt
         info_tokens = self.tokenizer(infos_str).input_ids
@@ -74,6 +92,8 @@ class ToolUtils:
                 promt_token = list(itertools.chain.from_iterable(self.loop_responses_token[batch_idx]))
                 next_prompt_token.append(promt_token)
                 next_prompt_length.append(len(promt_token))
+                # get process reward 
+                self.tool_use[batch_idx].append(step_scores[idx])
         
         if len(next_prompt_token) == 0:
             return 
@@ -146,6 +166,22 @@ class ToolUtils:
         response_token = torch.tensor(input_ids_list, dtype=torch.int64)[:,:max_len]
         response_loss_mask = torch.tensor(loss_mask_list, dtype=torch.float32)
         response_attention_mask = (response_token != self.pad_token_id).long()
+
+        # get the max length of the process rewards
+        max_tool_use_len = self.max_turns
+        for tool_use_item in self.tool_use:
+            max_tool_use_len = max(max_tool_use_len, len(tool_use_item))
+        tool_use_tensor = []
+
+        # Pad tool_use to have consistent dimensions
+        for idx in range(len(self.tool_use)):
+            if not self.tool_use[idx]:
+                padded_tool_use = [torch.nan] * max_tool_use_len
+            else:
+                padded_tool_use = self.tool_use[idx] + [torch.nan] * (max_tool_use_len - len(self.tool_use[idx]))
+            tool_use_tensor.append(padded_tool_use)
+
+        tool_use_score = torch.tensor(tool_use_tensor)
         
         input_ids = torch.cat([self.init_prompt_token, response_token], dim=-1)
         attention_mask = torch.cat([self.init_attention_mask, response_attention_mask], dim=-1)
@@ -159,7 +195,8 @@ class ToolUtils:
                 'input_ids': input_ids,
                 'attention_mask': attention_mask,
                 'position_ids': position_ids,
-                'loss_mask': loss_mask
+                'loss_mask': loss_mask,
+                'tool_use_scores': tool_use_score
             },
             batch_size=self.batch_size,
         )  

@@ -217,7 +217,6 @@ class QwenManager(ToolManager):
         # select used tools within one sse link before tool learning
         if self.verl_config.mcp_mode == 'sse' and len(self.verl_config.tool_name_selected) != 0:
             try:
-                assert type(self.verl_config.tool_name_selected) == list, AssertionError('Illegal variable define of tool_name_selected, list requested.')
                 self.tool_map = {each_tool_name: self.tool_map[each_tool_name] for each_tool_name in self.verl_config.tool_name_selected}
             except:
                 raise ValueError('Selected tool names are not valid or available sse tool list error. Available tool names: {}'.format(self.tool_map.keys()))
@@ -280,7 +279,15 @@ class QwenManager(ToolManager):
         i = response.find('<tool_call>')
         # If no function call:
         if i < 0:
-            return response
+            j = response.find('</tool_call>')
+            if j < 0:
+                return response
+            else:
+                parsed_tools.append({
+                        "name": "<error>",
+                        "args": "# Extract the tool name failed"
+                    })
+                return parsed_tools
 
         # split tool-call to separate assistant msg
         tool_call_list = response.split('<tool_call>')
@@ -325,6 +332,16 @@ class QwenManager(ToolManager):
                         "name": "<empty>",
                         "args": "# Extract the tool name failed"
                     })
+        
+        if len(parsed_tools) == 0 :
+            # <tool_call> is last token
+            fn_name = '<empty>'
+            fn_args = """# Extract the tool name failed"""
+            parsed_tools.append(
+                {
+                    "name": fn_name,
+                    "args": fn_args,
+                })
 
         return parsed_tools
     

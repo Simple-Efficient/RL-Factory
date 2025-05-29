@@ -144,6 +144,7 @@ actor_rollout_ref:
     config_path: envs/configs/mcp_tools.pydata
     enable_thinking: True
     max_prompt_length: 2048
+    use_process_reward: False
 
 critic:
   rollout_n: ${actor_rollout_ref.rollout.n}

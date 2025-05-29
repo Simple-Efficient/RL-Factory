@@ -2,13 +2,35 @@ import re
 import json
 import string
 import random
+import torch
 from .base import Env
-
+from verl import DataProto
 
 class SearchEnv(Env):
     def __init__(self, config):
         super().__init__(config)
         self.use_verify_tool = False
+
+    def get_step_reward(self, responses, format_score=0.1):
+        step_reward = []
+    
+        for response in responses:
+            temp_action, temp_tool_list = self.tool_manager.parse_response(response_content=response)
+            if temp_action == 'answer':
+                step_reward.append(torch.nan)
+            else:
+                if temp_tool_list[0]['name'] == '<empty>':
+                    step_reward.append(-0.5 * format_score)
+                else:
+                    fail_number = 0
+                    for i in range(len(temp_tool_list )):
+                        if temp_tool_list[i]['name'] == '<error>':
+                            fail_number += 1
+                    step_rew = ((len(temp_tool_list) - 2 *fail_number) / len(temp_tool_list)) * format_score
+                    step_reward.append(step_rew)
+       
+
+        return step_reward
 
     # NOTE: Add your reward calculation rules here!
     def _compute_score_with_rules(self, data, tokenizer, if_val=False):
@@ -85,6 +107,7 @@ class SearchEnv(Env):
                 print(f"Solution string: {solution_str}")
             
             answer_format_score = format_score if check_alternate_tags(solution_str, r"</?answer>") else (-1 * format_score)
+            num_score=0
             if check_alternate_tags(solution_str, r"</?tool_call>"):
                 tool_call_format_score = format_score
                 pattern = r"<tool_call>(.*?)</tool_call>"
@@ -104,10 +127,12 @@ class SearchEnv(Env):
                     tool_call_format_score = 2 * format_score * success_num / (success_num + fail_num) - format_score
                     if success_num + fail_num > 2:
                         tool_call_format_score -= 0.5 * format_score
+                        num_score = -format_score
             else:
                 tool_call_format_score = -0.5 * format_score
                 
-            total_format_score = tool_call_format_score + answer_format_score
+            #total_format_score = tool_call_format_score + answer_format_score
+            total_format_score = answer_format_score+num_score
 
             if answer is None:
                 return -1 * format_score + 0.5 * total_format_score

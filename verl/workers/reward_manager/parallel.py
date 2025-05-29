@@ -29,6 +29,8 @@ class AsyncRewardManager:
         self.reward_tokenizer = None
         self.reward_fn_key = reward_fn_key
         self.if_val = False
+        self.use_process_reward = False
+        self.stop_token = None
     
     def set_env_object(self, env_object):
         self.env_object: Env = env_object
@@ -72,6 +74,88 @@ class AsyncRewardManager:
 
         return scores
     
+
+    def find_tool_end_positions(self, data: DataProto, tokenizer):
+        """Find positions of all stop_tokens in responses, marking the end of tool calls.
+        
+        Args:
+            data (DataProto): The data containing responses
+            tokenizer: The tokenizer to decode token IDs
+            
+        Returns:
+            list: A list of dictionaries, each containing positions of stop_token for one sample
+        """
+        tool_end_positions = []
+        
+        # Get the token ID for stop_token
+        im_end_token_id = tokenizer.encode(self.stop_token, add_special_tokens=False)
+        if isinstance(im_end_token_id, list) and len(im_end_token_id) > 0:
+            im_end_token_id = im_end_token_id[0]
+        
+        for i in range(len(data)):
+            data_item = data[i]
+            
+            # Get the entire response tokens
+            response_ids = data_item.batch['responses']
+            
+            # Find all occurrences of im_end_token_id in response_ids
+            positions = []
+            
+            # Convert to numpy for easier processing if it's a tensor
+            if isinstance(response_ids, torch.Tensor):
+                response_ids_np = response_ids.cpu().numpy()
+            else:
+                response_ids_np = response_ids
+                
+            # Find all positions where the token ID matches im_end_token_id
+            for idx, token_id in enumerate(response_ids_np):
+                if token_id == im_end_token_id:
+                    positions.append(idx)
+            
+            tool_end_positions.append({
+                'response_length': len(response_ids_np),
+                'im_end_positions': positions,  # Positions in the response_ids array
+                'im_end_count': len(positions)
+            })
+        
+        return tool_end_positions
+    
+    def get_step_mask(self, data: DataProto):
+
+        # 初始化step_mask
+        step_mask = torch.zeros_like(data.batch['responses'], dtype=torch.long)
+
+        #找到所有stop token的位置
+        tool_end_positions = self.find_tool_end_positions(data,self.tokenizer)
+
+        for i in range(len(data)):
+            data_item = data[i]
+            # 获取prompts的长度
+            prompt_ids = data_item.batch['prompts']
+            prompt_length = prompt_ids.shape[-1]
+            response_attention_mask = data_item.batch['attention_mask'][prompt_length:]
+            last_one_idx = torch.where(response_attention_mask == 1)[0][-1]
+            
+            step_index=[]
+            #记录每个<tool_call></tool_call>以及<answer></answer>导致的停止位置
+            if tool_end_positions[i]['im_end_count']%2 == 1:
+                for j in range((tool_end_positions[i]['im_end_count'] // 2) + 1):
+                    step_index.append(tool_end_positions[i]['im_end_positions'][2 * j])
+            else:
+                for j in range((tool_end_positions[i]['im_end_count'] // 2)):
+                    step_index.append(tool_end_positions[i]['im_end_positions'][2 * j])
+                step_index.append(last_one_idx)
+
+            #根据是否使用过程奖励来定义step_mask
+            if self.use_process_reward:
+                for idx in step_index:
+                    step_mask[i, idx] = 1
+            else:
+                step_mask[i, last_one_idx] = 1
+
+        return step_mask
+
+    
     def __call__(self, data: DataProto, return_dict=False):
         """We will expand this function gradually based on the available datasets"""
         
@@ -82,30 +166,19 @@ class AsyncRewardManager:
             else:
                 return data.batch["rm_scores"]
 
-        if self.env_object.use_verify_tool:
-            data = self._get_verified_results(data)
-        
-        # 初始化step_mask
-        step_mask = torch.zeros_like(data.batch['responses'], dtype=torch.long)
-        for i in range(len(data)):
-            data_item = data[i]
-            # 获取prompts的长度
-            prompt_ids = data_item.batch['prompts']
-            prompt_length = prompt_ids.shape[-1]
-            
-            # 获取response部分的attention_mask
-            response_attention_mask = data_item.batch['attention_mask'][prompt_length:]
-            # 找到最后一个为1的位置
-            last_one_idx = torch.where(response_attention_mask == 1)[0][-1]
-            # 在最后一个为1的位置设置为1
-            step_mask[i, last_one_idx] = 1
+         #if use process reward
+        self.use_process_reward = self.env_object.use_process_reward
+
+        #获取step_mask
+        step_mask = self.get_step_mask(data)
 
         # 将step_mask添加到data中
         data.batch['step_mask'] = step_mask
 
         reward_tensor = torch.zeros_like(data.batch['responses'], dtype=torch.float32)
 
-        scores = self.env_object.compute_score(self.reward_rollout_wg, self.reward_tokenizer, self.tokenizer, data, if_val=self.if_val)
+        scores = self.env_object.compute_score(self.reward_rollout_wg, self.reward_tokenizer, self.tokenizer, data, if_val=self.if_val,use_process_reward=self.use_process_reward)
+
         reward_tensor = self._set_reward_tensor(scores, data)
 
         if return_dict:
@@ -121,13 +194,21 @@ class AsyncRewardManager:
         step_mask = data.batch['step_mask']
         for i in range(len(data)):
             cur_step_mask, cur_scores = step_mask[i], scores[i]
-            assert cur_step_mask.sum() == len(cur_scores), "step_mask and score length mismatch"
-            
-            # 找到所有为1的位置
             mask_indices = torch.where(cur_step_mask == 1)[0]
-            # 将对应的scores值赋给reward_tensor
+            assert cur_step_mask.sum() == len(cur_scores)
+
             for j, idx in enumerate(mask_indices):
                 reward_tensor[i, idx] = cur_scores[j]
+            '''
+            if self.use_process_reward:
+                for j, idx in enumerate(mask_indices):
+                    reward_tensor[i, idx] = cur_scores[j]
+            else:
+                 for j, idx in enumerate(mask_indices):
+                    if j == len(mask_indices)-1:
+                        reward_tensor[i, idx] = cur_scores[-1]
+                        #reward_tensor[i,idx]=cur_scores.sum()
+            '''
 
         return reward_tensor
     
