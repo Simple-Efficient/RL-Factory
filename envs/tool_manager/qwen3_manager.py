@@ -44,19 +44,18 @@ class QwenManager(ToolManager):
             'lang': 'en',
             'max_input_tokens': 10000
         }
+        self.use_simulated_user_feedback = verl_config.get("use_simulated_user_feedback", True)
         if self.use_simulated_user_feedback:
             import datasets
             from omegaconf import OmegaConf
             parent_dir = os.path.dirname(os.path.dirname(__file__))
             user_yaml_path = os.path.join(parent_dir, 'simulated_user', 'simulated_user.yaml')
-            yaml_config = OmegaConf.load(user_yaml_path)
-            self.user_feedback_prob = yaml_config.train.user_feedback_prob
-            data_file = yaml_config.train.data_file
+            self.yaml_config = OmegaConf.load(user_yaml_path)
+            self.user_feedback_prob = self.yaml_config.train.user_feedback_prob
+            data_file = self.yaml_config.train.data_file
             if not os.path.isabs(data_file):
                 data_file = os.path.join(parent_dir, 'simulated_user', data_file)
             if data_file.endswith('.jsonl'):
-                self.persona_dataset = datasets.load_dataset('jsonl', data_files=data_file)['train']
-            elif data_file.endswith('.json'):
                 self.persona_dataset = datasets.load_dataset('json', data_files=data_file)['train']
             else:
                 raise ValueError(f"Unsupported file type: {data_file}")
@@ -348,7 +347,7 @@ class QwenManager(ToolManager):
         return parsed_tools
     
     def get_prompt(self, input_data, tokenizer, mode='initial', add_generation_prompt=True):
-        assert mode in ['initial', 'tool_call', 'assistant_response'], 'Invalid mode: {}'.format(mode)
+        assert mode in ['initial', 'tool_call', 'assistant_response', 'user_feedback'], 'Invalid mode: {}'.format(mode)
         base_chat = [
             {'role': SYSTEM, 'content': 'base'},
             {'role': USER, 'content': 'base'},
@@ -365,10 +364,15 @@ class QwenManager(ToolManager):
                 conversation=chat, tokenize=False, tools=[func.function for func in self.tool_map.values()],
                 add_generation_prompt=add_generation_prompt, enable_thinking=self.verl_config.enable_thinking
             )
-        elif mode in ['tool_call', 'assistant_response']:
-            role = 'tool' if mode == 'tool_call' else ASSISTANT
+        elif mode in ['tool_call', 'assistant_response', 'user_feedback']:
+            if mode == 'tool_call':
+                role = 'tool'
+            elif mode == 'user_feedback':
+                role = USER
+            else:
+                role = ASSISTANT
             if type(input_data) == str:
-                chat = {'role': role, 'content': input_data}
+                chat = [{'role': role, 'content': input_data}]
             elif type(input_data) == list:
                 chat = input_data
             else:
@@ -383,8 +387,7 @@ class QwenManager(ToolManager):
         return prompt_with_chat_template
     
     async def _single_feedback(self, response: str) -> dict:
-        cfg = self._sim_user_feedback_cfg
-        prob = cfg.get('probability', 0.5)
+        cfg = self.yaml_config
         feedbacks = cfg.get('feedbacks', [])
         persona = None
         persona_str = None
@@ -397,20 +400,21 @@ class QwenManager(ToolManager):
         except Exception:
             persona_str = None
         from openai import OpenAI
-        api_key = os.getenv("OPENAI_API_KEY",)
-        base_url = os.getenv("OPENAI_BASE_URL")
+        api_key = os.getenv("OPENAI_API_KEY","sk-045a991549b245c9838dfe33552fcf86")
+        assert api_key is not None, "OPENAI_API_KEY should be set"
+        base_url = os.getenv("OPENAI_BASE_URL","https://api.deepseek.com")
         client = OpenAI(api_key=api_key, base_url=base_url)
         if persona_str:
             try:
                 prompt = (
                     f"Your persona is as follows:\n{persona_str}\n\n"
-                    f"Please, in the role of this persona, evaluate and provide feedback on the following AI answer. The feedback should be concise, specific, and constructive:\n"
+                    f"Please, in the role of this persona, evaluate and provide feedback on the following AI answer. The feedback should be concise, specific, and constructive, your feedback should be in English:\n"
                     f"AI's answer: {response}\n"
                     f"Your feedback:"
                 )
                 completion = await asyncio.to_thread(
                     client.chat.completions.create,
-                    model="anthropic.claude-3.5-sonnet-v2",
+                    model="deepseek-chat",
                     messages=[
                         {"role": "system", "content": "You are a user feedback generator."},
                         {"role": "user", "content": prompt}
@@ -432,7 +436,6 @@ class QwenManager(ToolManager):
             if use_feedback == 1:
                 tmp_responses.append(responses[idx])
                 simulaited_idx.append(idx)
-
         if len(tmp_responses) > 0:
             import asyncio
             tasks = [self._single_feedback(response) for response in tmp_responses]
@@ -440,14 +443,15 @@ class QwenManager(ToolManager):
                 loop = asyncio.get_running_loop()
                 results = loop.run_until_complete(asyncio.gather(*tasks))
             except RuntimeError:
-                results = asyncio.run(asyncio.gather(*tasks))
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                results = loop.run_until_complete(asyncio.gather(*tasks))
+                loop.close()
             for idx, result in zip(simulaited_idx, results):
-                assert isinstance(next_obs[idx], List)
-                next_obs[idx].append(tokenizer.apply_chat_template(
-                    conversation=[{'role': USER, 'content': result}],
-                    tokenize=False,
-                    add_generation_prompt=True
-                )
+                breakpoint()
+                assert isinstance(next_obs[idx], str)
+                assert isinstance(result, str)
+                next_obs[idx]+= self.get_prompt(result, tokenizer, mode='user_feedback')
                 dones[idx] = False
                 valid_action[idx] = 1
                 is_tool[idx] = 1

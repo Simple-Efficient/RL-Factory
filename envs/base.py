@@ -15,7 +15,7 @@ class Env(ABC):
         self.tool_manager = TOOL_MANAGER_REGISTRY[tool_manager_name](verl_config=config)
         self.max_prompt_length = config.get('max_prompt_length', 2048)
         self.use_verify_tool = False
-        self.use_simulated_user_feedback = config.get('use_simulated_user_feedback', False)
+        self.use_simulated_user_feedback = config.get('use_simulated_user_feedback', True)
 
         
     def verify_tool(self, data_source, solution_str, ground_truth, extra_info):
@@ -62,8 +62,11 @@ class Env(ABC):
                 if self.use_simulated_user_feedback:
                     if random.random() < self.tool_manager.user_feedback_prob:
                         user_feedback_flag.append(1)
+                        temp_next_obs, temp_done, temp_valid_action, temp_is_tool = '', False, 1, 0
                     else:
                         user_feedback_flag.append(0)
+                        temp_next_obs, temp_done, temp_valid_action, temp_is_tool = '', True, 1, 0
+                    temp_next_obs, temp_done, temp_valid_action, temp_is_tool = '', True, 1, 0
                 else:
                     temp_next_obs, temp_done, temp_valid_action, temp_is_tool = '', True, 1, 0
             elif action == 'error':

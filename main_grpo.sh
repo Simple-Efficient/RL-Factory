@@ -1,16 +1,24 @@
 #!/bin/bash
-source /home/ma-user/modelarts/work/jjw/RL-Factory/env.sh
-export MODEL_PATH=/home/ma-user/modelarts/work/model/Qwen3-8B
-export REWARD_MODEL_PATH=/home/ma-user/modelarts/work/model/Qwen3-8B
+source /root/autodl-tmp/RL-Factory/tmp/env_autodl.sh
+ray stop --force
+sleep 5
+export MODEL_PATH=/root/autodl-tmp/models/Qwen/Qwen3-0.6B
+export REWARD_MODEL_PATH=/root/autodl-tmp/models/Qwen/Qwen3-0.6B
+export WANDB_API_KEY=76ecf2334073036f76da7b9e4eb5bbe934767728
+export HYDRA_FULL_ERROR=1
+export RAY_DEBUG=1
+# export RAY_DEBUG="legacy"
 # export VLLM_ATTENTION_BACKEND=XFORMERS
-DATA=/home/ma-user/modelarts/work/jjw/Search-R1/data/nq_search
-export CUDA_VISIBLE_DEVICES="1,2"
+DATA=/root/autodl-tmp/data/nq_hotpotqa_train
+
+
+
 python3 -m verl.trainer.main_ppo\
     algorithm.adv_estimator=grpo\
     data.train_files=$DATA/train.parquet\
     data.val_files=$DATA/test.parquet\
-    data.train_batch_size=128\
-    data.max_prompt_length=4096\
+    data.train_batch_size=32\
+    data.max_prompt_length=1024\
     data.max_response_length=512\
     actor_rollout_ref.model.path=$MODEL_PATH\
     actor_rollout_ref.model.use_remove_padding=True\
@@ -27,7 +35,7 @@ python3 -m verl.trainer.main_ppo\
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=16\
     actor_rollout_ref.rollout.tensor_model_parallel_size=1\
     actor_rollout_ref.rollout.name=vllm\
-    actor_rollout_ref.rollout.gpu_memory_utilization=0.75\
+    actor_rollout_ref.rollout.gpu_memory_utilization=0.4\
     actor_rollout_ref.rollout.n=4\
     actor_rollout_ref.rollout.max_turns=2\
     actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=16\
@@ -41,10 +49,10 @@ python3 -m verl.trainer.main_ppo\
     actor_rollout_ref.env.config_path=/your/path/to/envs/configs/mcp_tools.pydata\
     reward_rollout.if_use_reward_rollout=False\
     reward_rollout.rollout.tensor_model_parallel_size=1\
-    reward_rollout.rollout.gpu_memory_utilization=0.75\
+    reward_rollout.rollout.gpu_memory_utilization=0.4\
     reward_rollout.rollout.model_name=$REWARD_MODEL_PATH\
     reward_rollout.rollout.free_cache_engine=False\
-    reward_rollout.rollout.response_length=2048\
+    reward_rollout.rollout.response_length=512\
     reward_model.reward_manager=parallel\
     algorithm.kl_ctrl.kl_coef=0.001\
     trainer.critic_warmup=0\
