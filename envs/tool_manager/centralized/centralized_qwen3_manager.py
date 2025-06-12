@@ -71,7 +71,8 @@ class CentralizedQwenManager(QwenManager):
             results = {'role': 'assitant', 'content': """# Extract the tools failed due to: {}""".format(tools)}
         elif action == 'actions':
             # 'tools' is the list of the 'Tool' instances
-            tool_results = [ray.get(self.centralized_actor_handle.execute_single_tool.remote(temp_tool)) for temp_tool in tools]
+            object_refs = [self.centralized_actor_handle.execute_single_tool.remote(temp_tool) for temp_tool in tools]
+            tool_results = ray.get(object_refs)
             results = [{'role': 'tool', 'content': temp_tool_result} for temp_tool_result in tool_results]
         else:
             raise ValueError('Unexpected action: {}'.format(action))
