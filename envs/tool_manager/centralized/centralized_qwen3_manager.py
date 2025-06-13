@@ -72,7 +72,7 @@ class CentralizedQwenManager(QwenManager):
         elif action == 'actions':
             # 'tools' is the list of the 'Tool' instances
             object_refs = [self.centralized_actor_handle.execute_single_tool.remote(temp_tool) for temp_tool in tools]
-            tool_results = ray.get(object_refs)
+            tool_results = await asyncio.gather(*object_refs)
             results = [{'role': 'tool', 'content': temp_tool_result} for temp_tool_result in tool_results]
         else:
             raise ValueError('Unexpected action: {}'.format(action))
@@ -91,62 +91,49 @@ class CentralizedToolActor:
         self.timeout = getattr(verl_config, 'tool_timeout', 30)
         print(f"集中式工具Actor初始化完成，工具执行超时时间：{self.timeout}秒")
 
-    def execute_single_tool(self, tool):
-        # 定义实际的工具执行逻辑
-        async def _execute_tool(tool):
-            tool_instance = self.tool_manager.get_tool(tool["name"])
-            args = tool["args"]
-            if tool_instance is not None:
-                try:
-                    args = json.loads(args)
-                except Exception as e:
-                    pass
+    async def execute_single_tool(self, tool):
+        tool_instance = self.tool_manager.get_tool(tool["name"])
+        args = tool["args"]
+        if tool_instance is not None:
+            try:
+                args = json.loads(args)
+            except Exception as e:
+                pass
 
-                if type(args) is dict:
+            if type(args) is dict:
+                try:
                     try:
-                        try:
-                            # 使用asyncio.to_thread包装self._call_tool以保持异步特性，使用asyncio.wait_for添加超时控制
-                            tool_result = await asyncio.wait_for(
-                                asyncio.to_thread(
-                                    self.tool_manager._call_tool, 
-                                    tool["name"], 
-                                    json.dumps(args, ensure_ascii=False, indent=4)
-                                ),
-                                timeout=self.timeout
-                            )
-                            if len(tool_result) == 0:
-                                tool_result = "The tool call format is correct, but the return result is empty. Please try other inputs or tools. "
-                            result = """# Execute the tool {} successed
-- The args are: {}
-- The result is:
-{}""".format(tool["name"], args, tool_result)
-                        except asyncio.TimeoutError:
-                            result = """# Execute the tool {} timeout
-- The tool execution exceeded the timeout limit of {} seconds
-- The original args are: {}""".format(tool["name"], self.timeout, args)
-                    except Exception as e:
-                        result = """# Execute the tool {} failed
-- The original args are: {}
-- Error message:
-{}""".format(tool["name"], args, str(e))
-                elif type(args) is str:
-                    # Json decode error: xxx
-                    result = args
-                else:
-                    result = 'Unexpected type of args: {} (args: {})'.format(type(args), args)
+                        # 使用asyncio.to_thread包装self._call_tool以保持异步特性，使用asyncio.wait_for添加超时控制
+                        tool_result = await asyncio.wait_for(
+                            asyncio.to_thread(
+                                self.tool_manager._call_tool, 
+                                tool["name"], 
+                                json.dumps(args, ensure_ascii=False, indent=4)
+                            ),
+                            timeout=self.timeout
+                        )
+                        if len(tool_result) == 0:
+                            tool_result = "The tool call format is correct, but the return result is empty. Please try other inputs or tools. "
+                        result = f"# Execute the tool {tool['name']} successed\n" \
+                                f"- The args are: {args}\n" \
+                                f"- The result is:\n{tool_result}"
+                    except asyncio.TimeoutError:
+                        result = f"# Execute the tool {tool['name']} timeout\n" \
+                                f"- The tool execution exceeded the timeout limit of {self.timeout} seconds\n" \
+                                f"- The original args are: {args}"
+                except Exception as e:
+                    result = f"# Execute the tool {tool['name']} failed\n" \
+                            f"- The original args are: {args}\n" \
+                            f"- Error message:\n{str(e)}"
+            elif type(args) is str:
+                # Json decode error: xxx
+                result = args
             else:
-                if tool['name'] == '<empty>':
-                    result = args
-                else:
-                    result = "# Failed to find the tool {} in the tool map".format(tool['name'])
-            
-            return result
-    
-        try:
-            result = asyncio.run(_execute_tool(tool))
-        except RuntimeError:
-            # 如果事件循环已经在运行，则获取当前循环
-            loop = asyncio.get_event_loop()
-            result = loop.run_until_complete(_execute_tool(tool))
+                result = 'Unexpected type of args: {} (args: {})'.format(type(args), args)
+        else:
+            if tool['name'] == '<empty>':
+                result = args
+            else:
+                result = "# Failed to find the tool {} in the tool map".format(tool['name'])
         
         return result
