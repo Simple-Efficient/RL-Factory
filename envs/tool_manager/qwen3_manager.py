@@ -73,13 +73,17 @@ class QwenManager(ToolManager):
 
     def _build_tools(self):
         config_path = self.verl_config.config_path
-        function_list = parse_mcp_tools_config(config_path)
+        if config_path is not None:
+            function_list = parse_mcp_tools_config(config_path)
 
-        if function_list:
-            for tool in function_list:
-                self._init_tool(tool)
-        
-        self.functions = [func.function for func in self.tool_map.values()]
+            if function_list:
+                for tool in function_list:
+                    self._init_tool(tool)
+            
+            self.functions = [func.function for func in self.tool_map.values()]
+        else:
+            print("The config_path is None!")
+            self.functions = []
 
     async def execute_all_tools_with_limiter(self, actions, tools):
         """并行执行工具调用"""
@@ -398,14 +402,14 @@ class QwenManager(ToolManager):
         ]
         base_prompt = tokenizer.apply_chat_template(
             conversation=base_chat,
-            tools=[func.function for func in self.tool_map.values()],
+            tools=self.functions,
             tokenize=False, add_generation_prompt=False
         )
 
         if mode == 'initial':
             chat = input_data
             prompt_with_chat_template = tokenizer.apply_chat_template(
-                conversation=chat, tokenize=False, tools=[func.function for func in self.tool_map.values()], 
+                conversation=chat, tokenize=False, tools=self.functions, 
                 add_generation_prompt=add_generation_prompt, enable_thinking=self.verl_config.enable_thinking
             )
         elif mode in ['tool_call', 'assistant_response']:
@@ -419,7 +423,7 @@ class QwenManager(ToolManager):
                 raise ValueError('Unexpected type of input_data {} ({})'.format(type(input_data), input_data))
             
             temp_prompt_with_chat_template = tokenizer.apply_chat_template(
-                conversation=base_chat + chat, tools=[func.function for func in self.tool_map.values()], 
+                conversation=base_chat + chat, tools=self.functions, 
                 tokenize=False, add_generation_prompt=add_generation_prompt, enable_thinking=self.verl_config.enable_thinking
             )
             prompt_with_chat_template = temp_prompt_with_chat_template.replace(base_prompt, '')

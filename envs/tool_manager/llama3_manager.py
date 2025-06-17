@@ -63,13 +63,17 @@ class Llama3Manager(ToolManager):
 
     def _build_tools(self):
         config_path = self.verl_config.config_path
-        function_list = parse_mcp_tools_config(config_path)
+        if config_path is not None:
+            function_list = parse_mcp_tools_config(config_path)
 
-        if function_list:
-            for tool in function_list:
-                self._init_tool(tool)
-        
-        self.functions = [func.function for func in self.tool_map.values()]
+            if function_list:
+                for tool in function_list:
+                    self._init_tool(tool)
+            
+            self.functions = [func.function for func in self.tool_map.values()]
+        else:
+            print("The config_path is None!")
+            self.functions = []
 
     async def execute_all_tools(self, actions, tool_list):
         """异步并行执行所有工具列表
@@ -342,8 +346,7 @@ For each function call, return a json object with function name and arguments wi
             {'role': USER, 'content': 'base'},
         ]
         base_prompt = tokenizer.apply_chat_template(
-            conversation=base_chat,
-            #tools=[func.function for func in self.tool_map.values()],
+            conversation=base_chat, 
             tokenize=False, add_generation_prompt=False
         )
         tool_base_prompt = self.tool_prompt()
@@ -352,7 +355,6 @@ For each function call, return a json object with function name and arguments wi
             chat = input_data
             prompt_with_chat_template = tokenizer.apply_chat_template(
                 conversation=chat, tokenize=False, 
-                #tools=[func.function for func in self.tool_map.values()], 
                 add_generation_prompt=add_generation_prompt
             )
             prompt_with_chat_template = prompt_with_chat_template.replace("<|end_header_id|>", "<|end_header_id|>" + tool_base_prompt, 1)
@@ -368,7 +370,6 @@ For each function call, return a json object with function name and arguments wi
                 raise ValueError('Unexpected type of input_data {} ({})'.format(type(input_data), input_data))
             temp_prompt_with_chat_template = tokenizer.apply_chat_template(
                 conversation=base_chat + chat, 
-                #tools=[func.function for func in self.tool_map.values()], 
                 tokenize=False, add_generation_prompt=add_generation_prompt
             )
             prompt_with_chat_template = temp_prompt_with_chat_template.replace(base_prompt, '')
