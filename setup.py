@@ -65,7 +65,7 @@ extras_require = {
 
 
 this_directory = Path(__file__).parent
-long_description = (this_directory / "README.md").read_text()
+long_description = (this_directory / "README_android.md").read_text()
 
 setup(
     name="rl_factory",
