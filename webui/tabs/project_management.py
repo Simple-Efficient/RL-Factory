@@ -114,7 +114,7 @@ def create_project(project_name, project_description):
 在此添加项目的使用说明...
 """
         
-        readme_file = project_path / "README.md"
+        readme_file = project_path / "README_android.md"
         with open(readme_file, 'w', encoding='utf-8') as f:
             f.write(readme_content)
         
