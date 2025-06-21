@@ -99,6 +99,9 @@ class RLHFDataset(Dataset):
         self.processor = processor
         self.config = config
 
+        #控制是否使用工具
+        self.use_tool = config.get("use_tool", True)
+
         self.cache_dir = os.path.expanduser(config.get("cache_dir", "~/.cache/verl/rlhf"))
         self.prompt_key = config.get("prompt_key", "prompt")
         self.image_key = config.get("image_key", "images")
@@ -219,7 +222,13 @@ class RLHFDataset(Dataset):
             row_dict["multi_modal_inputs"].pop("second_per_grid_ts", None)
 
         else:
-            raw_prompt = self.env_object.tool_manager.get_prompt(messages, self.tokenizer, mode='initial', add_generation_prompt=True)
+            if self.use_tool and hasattr(self.env_object, "tool_manager") and hasattr(self.env_object.tool_manager, "get_prompt"):
+                #  使用 tool_manager 提供的 prompt
+                raw_prompt = self.env_object.tool_manager.get_prompt(messages, self.tokenizer, mode='initial', add_generation_prompt=True)
+            else:
+                # 使用 tokenizer 生成 prompt（禁用工具）
+                raw_prompt = self.tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
+            #raw_prompt = self.env_object.tool_manager.get_prompt(messages, self.tokenizer, mode='initial', add_generation_prompt=True)
             # raw_prompt = self.tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
             model_inputs = self.tokenizer(raw_prompt, return_tensors="pt", add_special_tokens=False)
             input_ids = model_inputs.pop("input_ids")

@@ -8,20 +8,30 @@ defaults:
 
 data:
   gen_batch_size: ${data.train_batch_size}
-
+  use_tool: False
+actor_rollout_ref:
+  env:
+      name: base
+      model_type: qwen2
+      tool_manager: null
 reward_model:
   reward_manager: dapo
   overlong_buffer: 
-    enable: False # We try to avoid forgetting to set enable
+    enable: False
     len: 0
     penalty_factor: 0.0
     log: False
 
 algorithm:
   filter_groups:
-    enable: False # We try to avoid forgetting to set enable
-    metric: null # acc / score / seq_reward / seq_final_reward / ...
-    max_num_gen_batches: 0 # Non-positive values mean no upper limit
+    enable: False
+    metric: null
+    max_num_gen_batches: 0
 
 trainer:
   project_name: verl-dapo
+
+  # The steps that will be profiled. null means no profiling. null or [1,2,5,...]
+  profile_steps: []
+
+
