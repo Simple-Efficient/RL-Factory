@@ -66,7 +66,7 @@ For **future progression**, we will continue to prioritize **"easy"** and **"eff
   pip3 install accelerate bitsandbytes datasets deepspeed==0.16.4 einops flash-attn==2.7.0.post2 isort jsonlines loralib optimum packaging peft pynvml>=12.0.0 ray[default]==2.46.0 tensorboard torch==2.6.0 torchmetrics tqdm transformers==4.51.3 transformers_stream_generator wandb wheel
   pip3 install vllm==0.8.5      # Mainly for Qwen3 model support
   pip3 install "qwen-agent[code_interpreter]"
-  pip3 install llama_index bs4 pymilvus infinity_client codetiming tensordict==0.6 omegaconf torchdata==0.10.0 hydra-core easydict dill python-multipart mcp
+  pip3 install llama_index bs4 pymilvus infinity_client codetiming tensordict==0.6 omegaconf torchdata==0.10.0 hydra-core easydict dill python-multipart mcp==1.9.3
   pip3 install -e . --no-deps
   pip3 install faiss-gpu-cu12   # Optional, needed for end-to-end search model training with rag_server
   pip3 install nvidia-cublas-cu12==12.4.5.8  # Optional, needed while encountering ray worker died issue during training
