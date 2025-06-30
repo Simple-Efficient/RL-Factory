@@ -123,12 +123,12 @@ class ToolUtils:
         max_len = self.config_prompt_length
         next_batch = TensorDict(
             {
-                'input_ids': next_input_ids[:, -max_len:].cpu().share_memory_(),
-                'position_ids': position_ids[:, -max_len:].cpu().share_memory_(),
-                'attention_mask': next_attention_mask[:, -max_len:].to(dtype=torch.int64).cpu().share_memory_()
+                'input_ids': next_input_ids[:, -max_len:],
+                'position_ids': position_ids[:, -max_len:],
+                'attention_mask': next_attention_mask[:, -max_len:]
             },
             batch_size=next_input_ids.shape[0]
-        ).share_memory_()
+        )
         raw_prompt_ids = np.empty(len(next_prompt_token), dtype=object)
         # raw_prompt_ids[:] = [np.array(x[-max_len:]) for x in next_prompt_token]
         raw_prompt_ids[:] = [x[-max_len:] for x in next_prompt_token]
