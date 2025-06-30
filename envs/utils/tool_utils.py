@@ -37,121 +37,7 @@ class ToolUtils:
         self.loop_cnt = 0
 
         self.env_object = env_object
-
-    def postprocess_output_tp(self, output: DataProto, step: int):
-        '''output: cpu'''
-
-        # init loop responses token
-        if self.loop_cnt == 0:
-            self.batch_size = output.batch.batch_size[0]
-            self.tool_use = [[] for _ in range(self.batch_size)]
-            self.loop_responses_token = [[] for _ in range(self.batch_size)]
-            self.end_flags = [False for _ in range(self.batch_size)]
-            self.init_prompt_token = output.batch.get('prompts')
-            prompt_length = self.init_prompt_token.shape[-1]
-            self.init_attention_mask = output.batch.get('attention_mask')[:,:prompt_length]  
-
-            batch_idxs = list(range(self.batch_size))
-            for idx in range(self.batch_size):
-                prompt_token = self.init_prompt_token[idx]
-                prompt_token_list = prompt_token[prompt_token != self.pad_token_id].tolist()
-                self.loop_responses_token[idx].append(prompt_token_list)
-        else:
-            batch_idxs = output.meta_info['index']
-
-        responses = output.batch.get('responses')
-
-        process_response = []
-        for idx, batch_idx in enumerate(batch_idxs):
-            response_token = responses[idx]
-            response_token_list = response_token[response_token != self.pad_token_id].tolist()
-            if self.env_object.use_process_reward:
-            # assure last token is stop token （add or change）
-                if response_token_list[-1] != self.stop_id:
-                    if len(response_token_list) != self.config_response_length:
-                        response_token_list.append(self.stop_id)
-                    else:
-                        response_token_list[-1] = self.stop_id
-            self.loop_responses_token[batch_idx].append(response_token_list)
-            process_response.append(response_token_list)
         
-        # decode responses for env step (detect tool call)
-        responses_str = self.tokenizer.batch_decode(
-            process_response,
-            skip_special_tokens=False,
-        )
-
-        infos_str, dones, _, _ = self.env_object.step(
-            responses=responses_str, tokenizer=self.tokenizer
-        )
-        
-        #if not use_process_reward will be 0
-        if self.env_object.use_process_reward:
-            step_scores = self.env_object.get_step_reward(responses=responses_str)
-        else:
-            step_scores = [0] * len(responses_str)
-        
-        # encode infos for next prompt
-        info_tokens = self.tokenizer(infos_str, truncation=True, max_length=self.max_tool_response_length).input_ids
-        next_prompt_token = []
-        next_prompt_length = []
-        next_sample_idx = []
-        for idx, batch_idx in enumerate(batch_idxs):
-            # 只在第一次未结束时添加response_token_list
-            if not self.end_flags[batch_idx]:
-                response_token = responses[idx]
-                response_token_list = response_token[response_token != self.pad_token_id].tolist()
-                self.loop_responses_token[batch_idx].append(response_token_list)
-                # get process reward
-                self.tool_use[batch_idx].append(step_scores[idx])
-
-            # 如果done了，设置end_flag
-            if dones[idx]:
-                self.end_flags[batch_idx] = True
-
-            # info_token_list只在未done时添加
-            if not dones[idx] and not self.end_flags[batch_idx]:
-                info_token_list = info_tokens[idx]
-                self.loop_responses_token[batch_idx].append(info_token_list)
-
-            next_sample_idx.append(batch_idx)
-            promt_token = list(itertools.chain.from_iterable(self.loop_responses_token[batch_idx]))
-            next_prompt_token.append(promt_token)
-            next_prompt_length.append(len(promt_token))
-        
-        # left pad
-        max_len = max(max(next_prompt_length), self.config_prompt_length)
-        next_prompt_token_pad = []
-        for prompt_token in next_prompt_token:
-            token = [self.pad_token_id] * (max_len - len(prompt_token)) + prompt_token
-            next_prompt_token_pad.append(token)
-
-        next_input_ids = torch.tensor(next_prompt_token_pad, dtype=torch.int64)
-        next_attention_mask = next_input_ids != self.pad_token_id
-        # position_ids = (torch.cumsum(next_attention_mask, dim=1) - 1) * next_attention_mask
-        position_ids = torch.clip(torch.cumsum(next_attention_mask, dim=-1) - 1, min=0, max=None) * next_attention_mask
-        
-        max_len = self.config_prompt_length
-        next_batch = TensorDict(
-            {
-                'input_ids': next_input_ids[:, -max_len:].cpu().share_memory_(),
-                'position_ids': position_ids[:, -max_len:].cpu().share_memory_(),
-                'attention_mask': next_attention_mask[:, -max_len:].to(dtype=torch.int64).cpu().share_memory_()
-            },
-            batch_size=next_input_ids.shape[0]
-        ).share_memory_()
-        raw_prompt_ids = np.empty(len(next_prompt_token), dtype=object)
-        # raw_prompt_ids[:] = [np.array(x[-max_len:]) for x in next_prompt_token]
-        raw_prompt_ids[:] = [x[-max_len:] for x in next_prompt_token]
-
-        next_data = DataProto(batch=next_batch, non_tensor_batch={'raw_prompt_ids': raw_prompt_ids})
-        next_data.meta_info.update(self.meta_info)
-        next_data.meta_info['index'] = next_sample_idx
-        next_data.meta_info['do_sample'] = False # step > 0 does not do sample
-        self.loop_cnt += 1
-
-        return next_data
-    
     def postprocess_output(self, output: DataProto, step: int):
         '''output: cpu'''
         # init loop responses token
@@ -255,6 +141,93 @@ class ToolUtils:
 
         return next_data
 
+    def postprocess_output_tp(self, output: DataProto, step: int):
+        '''output: cpu'''
+
+        # init loop responses token
+        if self.loop_cnt == 0:
+            self.batch_size = output.batch.batch_size[0]
+            self.loop_responses_token = [[] for _ in range(self.batch_size)]
+            self.init_prompt_token = output.batch.get('prompts')
+            prompt_length = self.init_prompt_token.shape[-1]
+            self.init_attention_mask = output.batch.get('attention_mask')[:,:prompt_length]  
+
+            batch_idxs = list(range(self.batch_size))
+            for idx in range(self.batch_size):
+                prompt_token = self.init_prompt_token[idx]
+                prompt_token_list = prompt_token[prompt_token != self.pad_token_id].tolist()
+                self.loop_responses_token[idx].append(prompt_token_list)
+        else:
+            batch_idxs = output.meta_info['index']
+
+        responses = output.batch.get('responses')
+        for idx, batch_idx in enumerate(batch_idxs):
+            response_token = responses[idx]
+            response_token_list = response_token[response_token != self.pad_token_id].tolist()
+            self.loop_responses_token[batch_idx].append(response_token_list)
+
+        # decode responses for env step (detect tool call)
+        responses_str = self.tokenizer.batch_decode(
+            output.batch.get('responses'),
+            skip_special_tokens=False,
+        )
+        responses_str = [response.replace(self.tokenizer.pad_token, '') for response in responses_str]
+        infos_str, dones, _, _ = self.env_object.step(
+            responses=responses_str, tokenizer=self.tokenizer
+        )
+        # encode infos for next prompt
+        info_tokens = self.tokenizer(infos_str).input_ids
+        next_prompt_token = []
+        next_prompt_length = []
+        next_sample_idx = []
+        for idx, batch_idx in enumerate(batch_idxs):
+            if not dones[idx]:
+                info_token_list = info_tokens[idx]
+                self.loop_responses_token[batch_idx].append(info_token_list)
+                next_sample_idx.append(batch_idx)
+                promt_token = list(itertools.chain.from_iterable(self.loop_responses_token[batch_idx]))
+                next_prompt_token.append(promt_token)
+                next_prompt_length.append(len(promt_token))
+            else:
+                info_token_list = info_tokens[idx]
+                next_sample_idx.append(batch_idx)
+                promt_token = list(itertools.chain.from_iterable(self.loop_responses_token[batch_idx]))
+                next_prompt_token.append(promt_token)
+                next_prompt_length.append(len(promt_token))
+        
+        # left pad
+        max_len = max(max(next_prompt_length), self.config_prompt_length)
+        next_prompt_token_pad = []
+        for prompt_token in next_prompt_token:
+            token = [self.pad_token_id] * (max_len - len(prompt_token)) + prompt_token
+            next_prompt_token_pad.append(token)
+
+        next_input_ids = torch.tensor(next_prompt_token_pad, dtype=torch.int64)
+        next_attention_mask = next_input_ids != self.pad_token_id
+        # position_ids = (torch.cumsum(next_attention_mask, dim=1) - 1) * next_attention_mask
+        position_ids = torch.clip(torch.cumsum(next_attention_mask, dim=-1) - 1, min=0, max=None) * next_attention_mask
+        
+        max_len = self.config_prompt_length
+        next_batch = TensorDict(
+            {
+                'input_ids': next_input_ids[:, -max_len:].cpu().share_memory_(),
+                'position_ids': position_ids[:, -max_len:].cpu().share_memory_(),
+                'attention_mask': next_attention_mask[:, -max_len:].to(dtype=torch.int64).cpu().share_memory_()
+            },
+            batch_size=next_input_ids.shape[0]
+        ).share_memory_()
+        raw_prompt_ids = np.empty(len(next_prompt_token), dtype=object)
+        # raw_prompt_ids[:] = [np.array(x[-max_len:]) for x in next_prompt_token]
+        raw_prompt_ids[:] = [x[-max_len:] for x in next_prompt_token]
+
+        next_data = DataProto(batch=next_batch, non_tensor_batch={'raw_prompt_ids': raw_prompt_ids})
+        next_data.meta_info.update(self.meta_info)
+        next_data.meta_info['index'] = next_sample_idx
+        next_data.meta_info['do_sample'] = False # step > 0 does not do sample
+        self.loop_cnt += 1
+
+        return next_data
+    
     def compose_final_output(self, step) -> DataProto:
         """Compose final generation output."""
         input_ids_list = []

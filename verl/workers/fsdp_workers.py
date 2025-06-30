@@ -721,7 +721,6 @@ class ActorRolloutRefWorker(Worker):
         prompts.non_tensor_batch.pop("tools_kwargs")
 
         su = ToolUtils(self.tokenizer, meta_info, self.rollout.config, env_object=self.env_object)
-        tp_size = self.config.rollout.tensor_model_parallel_size
 
         with self.rollout_sharding_manager:
 
@@ -733,16 +732,18 @@ class ActorRolloutRefWorker(Worker):
 
             log_gpu_memory_usage('After entering rollout sharding manager', logger=logger)
             max_turns = self.rollout.config.max_turns
+            vllm_tp_size = self.config.rollout.tensor_model_parallel_size            
             for step in range(max_turns):
                 prompts = self.rollout_sharding_manager.preprocess_data(prompts)
+                if vllm_tp_size > 1:
+                    torch.distributed.barrier()
+                
                 output = self.rollout.generate_sequences(prompts=prompts)
-
                 log_gpu_memory_usage('After rollout generation', logger=logger)
                 output = self.rollout_sharding_manager.postprocess_data(output)
-
                 output = output.to('cpu')
                 output.meta_info.update(prompts.meta_info)
-                if tp_size > 1:
+                if vllm_tp_size > 1:
                     prompts = su.postprocess_output_tp(output, step)
                 else:
                     prompts = su.postprocess_output(output, step)
