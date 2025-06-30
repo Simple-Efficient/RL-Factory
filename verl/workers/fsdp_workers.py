@@ -65,6 +65,7 @@ from verl.utils.import_utils import import_external_libs
 from verl.utils.model import compute_position_id_with_mask
 from verl.utils.py_functional import convert_to_regular_types
 from verl.workers.sharding_manager.fsdp_ulysses import FSDPUlyssesShardingManager
+from verl.protocol import broadcast_data_proto
 from envs.utils.tool_utils import ToolUtils
 from envs import TOOL_ENV_REGISTRY
 
@@ -729,24 +730,49 @@ class ActorRolloutRefWorker(Worker):
                 offload_fsdp_optimizer(optimizer=self.actor_optimizer)
 
             log_gpu_memory_usage('After entering rollout sharding manager', logger=logger)
+            
+            prompts = self.rollout_sharding_manager.preprocess_data(prompts)
+
             max_turns = self.rollout.config.max_turns
-            # max_turns = 1
+            tp_group, tp_rank = self.rollout_sharding_manager.get_tp_group_and_rank()
+            
             for step in range(max_turns):
-                prompts = self.rollout_sharding_manager.preprocess_data(prompts)
+                prompts = prompts.to(torch.cuda.current_device())
                 output = self.rollout.generate_sequences(prompts=prompts)
 
                 log_gpu_memory_usage('After rollout generation', logger=logger)
-                output = self.rollout_sharding_manager.postprocess_data(output)
-
                 output = output.to('cpu')
                 output.meta_info.update(prompts.meta_info)
-                prompts = su.postprocess_output(output, step)
-                if prompts is None:
-                    break
-            
-            output = su.compose_final_output(step=step)
+                
+                # After rollout_sharding_manager.preprocess_data, all tp rank has identical input and output 
+                # So we only postprocess_out put in tp0
+                # in the end,  we will broadcast output from tp0 to other tprank
+                if tp_rank == 0:
+                    prompts = su.postprocess_output(output, step)
+                    is_finish = prompts is None
+                else:
+                    prompts = DataProto()
+                    is_finish = None
+                object_list = [is_finish]
+                torch.distributed.broadcast_object_list(object_list, group=tp_group, group_src=0)
+                is_finish = object_list[0]
 
+                if is_finish:
+                    break
+                else:
+                    broadcast_data_proto(prompts, process_group=tp_group, group_src=0)
+            
+            dp_group = self.rollout_sharding_manager.get_dp_group()
+            if tp_rank == 0:
+                output = su.compose_final_output(step=step, group=dp_group)
+            else:
+                output = DataProto()
+            broadcast_data_proto(output, process_group=tp_group, group_src=0)
+            
+            output = self.rollout_sharding_manager.postprocess_data(output)
+            
         output = output.to('cpu')
+
 
         # clear kv cache
         log_gpu_memory_usage('After generate_sequences', logger=logger)

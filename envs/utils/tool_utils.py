@@ -1,10 +1,13 @@
+import os
+import logging
 import torch
 import itertools
 import numpy as np
 from verl import DataProto
-import torch.distributed as dist
 from tensordict import TensorDict
 
+logger = logging.getLogger(__file__)
+logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "INFO"))
 
 class ToolUtils:
     def __init__(self, tokenizer, meta_info, config, env_object):
@@ -78,11 +81,9 @@ class ToolUtils:
             process_response,
             skip_special_tokens=False,
         )
-
         infos_str, dones, _, _ = self.env_object.step(
             responses=responses_str, tokenizer=self.tokenizer
         )
-
         #if not use_process_reward will be 0
         if self.env_object.use_process_reward:
             step_scores = self.env_object.get_step_reward(responses=responses_str)
@@ -141,7 +142,7 @@ class ToolUtils:
 
         return next_data
 
-    def compose_final_output(self, step) -> DataProto:
+    def compose_final_output(self, step, group) -> DataProto:
         """Compose final generation output."""
         input_ids_list = []
         loss_mask_list = []
@@ -161,7 +162,9 @@ class ToolUtils:
         
         # max_len = max(max(length_list), self.config_response_length)
         max_response_length = torch.tensor([max(length_list)], device=torch.cuda.current_device())
-        dist.all_reduce(max_response_length, op=dist.ReduceOp.MAX)
+        # because only tp=0 will exec postprocess_output and compose_final_output
+        # so we exec all_reduce in specified group(dp group)
+        torch.distributed.all_reduce(max_response_length, op=torch.distributed.ReduceOp.MAX, group=group)
         max_len = int(max_response_length)
         
         # right pad

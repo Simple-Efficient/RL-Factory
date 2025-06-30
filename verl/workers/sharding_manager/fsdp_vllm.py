@@ -286,6 +286,12 @@ class FSDPVLLMShardingManager(BaseShardingManager):
         self.base_sync_done = True
         logger.info(f"vLLM load weights, loaded_params: {len(loaded_params) if loaded_params else -1}")
 
+    def get_tp_group_and_rank(self):
+        # TODO: Current impl doesn't consider FSDP with torch micro-dp
+        return self.device_mesh["infer_tp"].get_group(), self.device_mesh["infer_tp"].get_local_rank()
+    
+    def get_dp_group(self):
+        return self.device_mesh["dp"].get_group()
 
 class FSDPVLLMRewardShardingManager(FSDPVLLMShardingManager):
     @check_device_is_available()

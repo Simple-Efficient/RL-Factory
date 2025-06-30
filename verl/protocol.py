@@ -36,7 +36,7 @@ from torch.utils.data import DataLoader
 
 from verl.utils.device import get_torch_device
 from verl.utils.py_functional import union_two_dict
-from verl.utils.torch_functional import allgather_dict_tensors
+from verl.utils.torch_functional import allgather_dict_tensors, broadcast_dict_tensor_optimized
 
 __all__ = ["DataProto", "union_tensor_dict"]
 
@@ -896,3 +896,34 @@ def all_gather_data_proto(data: DataProto, process_group):
     all_non_tensor_batch = [None for _ in range(group_size)]
     torch.distributed.all_gather_object(all_non_tensor_batch, data.non_tensor_batch, group=process_group)
     data.non_tensor_batch = {k: np.concatenate([d[k] for d in all_non_tensor_batch]) for k in data.non_tensor_batch}
+
+
+def broadcast_data_proto(data: DataProto, process_group, group_src: int):
+    """
+    Broadcast DataProto from src rank to all ranks in the process group.
+    This is an inplace operation similar to torch.distributed.broadcast.
+    (Note: the final data.batch always will be to cpu)
+    
+    Args:
+        data: DataProto to broadcast (only meaningful on src rank, will be overwritten on other ranks)
+        process_group: process group for communication
+        group_src: source group_rank to broadcast from
+    """
+    assert isinstance(data, DataProto)
+    
+    # Handle tensor batch broadcasting
+    if data.batch is not None:
+        data.batch = data.batch.cuda(device=torch.cuda.current_device())
+        data.batch.contiguous()
+
+    data.batch = broadcast_dict_tensor_optimized(data.batch, group=process_group, group_src=group_src)
+    data.batch = data.batch.to('cpu')
+    # non_tensor_batch is also broadcasted
+    non_tensor_list = [data.non_tensor_batch]
+    torch.distributed.broadcast_object_list(non_tensor_list, group=process_group, group_src=group_src)
+    data.non_tensor_batch = non_tensor_list[0]
+
+    # Meta info is also broadcasted
+    meta_info_list = [data.meta_info]
+    torch.distributed.broadcast_object_list(meta_info_list, group=process_group, group_src=group_src)
+    data.meta_info = meta_info_list[0]

@@ -228,6 +228,40 @@ def broadcast_dict_tensor(tensors: Union[Dict[str, torch.Tensor], TensorDict], s
     for key in tensors.sorted_keys:
         torch.distributed.broadcast(tensors[key], src=src, group=group, async_op=False)
 
+def broadcast_dict_tensor_optimized(tensors: TensorDict, group, group_src):
+    """Optimized version: supports non-source ranks passing None"""
+    rank = torch.distributed.get_rank(group)
+    
+    # First broadcast keys
+    if rank == group_src:
+        keys = list(tensors.sorted_keys)
+    else:
+        keys = None
+    
+    keys_list = [keys]
+    torch.distributed.broadcast_object_list(keys_list, group=group, group_src=group_src)
+    keys = keys_list[0]
+
+    tensors_dict = {}
+    # Broadcast tensors one by one
+    for key in keys:
+        if rank != group_src:
+            # Create empty tensor with same shape for non-source ranks
+            meta_info_list = [None]
+            torch.distributed.broadcast_object_list(meta_info_list, group=group, group_src=group_src)
+            meta_info = meta_info_list[0]
+            cur_tensor = torch.empty(meta_info[0], dtype=meta_info[1], device=torch.cuda.current_device())
+            torch.distributed.broadcast(cur_tensor, group=group, group_src=group_src)
+            tensors_dict[key] = cur_tensor
+        else:
+            cur_tensor = tensors[key]
+            # Source rank broadcasts meta_info info
+            meta_info_list = [(cur_tensor.shape, cur_tensor.dtype)]
+            torch.distributed.broadcast_object_list(meta_info_list, group=group, group_src=group_src)
+            torch.distributed.broadcast(cur_tensor, group=group, group_src=group_src)
+    if rank != group_src:
+        tensors = TensorDict(tensors_dict, batch_size=cur_tensor.shape[0])
+    return tensors
 
 def allgather_dict_tensors(tensors: Union[Dict[str, torch.Tensor], TensorDict], size, group, dim=0):
     """
