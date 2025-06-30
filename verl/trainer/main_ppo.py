@@ -23,6 +23,7 @@ from envs import TOOL_ENV_REGISTRY
 
 from verl.trainer.ppo.ray_trainer import RayPPOTrainer
 from verl.trainer.ppo.reward import load_reward_manager
+from transformers import AutoConfig
 
 @hydra.main(config_path="config", config_name="ppo_trainer", version_base=None)
 def main(config):
