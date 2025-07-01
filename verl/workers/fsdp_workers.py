@@ -775,7 +775,7 @@ class ActorRolloutRefWorker(Worker):
 
 
         # clear kv cache
-        log_gpu_memory_usage('After generate_sequences', logger=logger)
+        get_torch_device().empty_cache()
         return output
 
     @register(dispatch_mode=Dispatch.DP_COMPUTE_PROTO)
