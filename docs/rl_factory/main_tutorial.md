@@ -38,7 +38,7 @@
     ```json
     [
         {'mcpServers': {
-            'time': {
+            'search': {
                 'command': 'python',
                 'args': ['envs/tools/search.py']
             }
