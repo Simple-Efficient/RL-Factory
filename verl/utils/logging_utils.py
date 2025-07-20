@@ -14,6 +14,9 @@
 
 import logging
 import os
+import sys
+from typing import Any
+
 
 import torch
 
@@ -30,3 +33,38 @@ def log_to_file(string):
     if os.path.isdir("logs"):
         with open(f"logs/log_{torch.distributed.get_rank()}", "a+") as f:
             f.write(string + "\n")
+
+
+def error_print(message: Any, *args, **kwargs) -> None:
+    """
+    统一的错误输出函数，所有消息都输出到stderr并立即刷新
+    
+    Args:
+        message: 要打印的消息
+        *args: 额外的位置参数
+        **kwargs: 额外的关键字参数（会被忽略，因为我们强制使用stderr和flush=True）
+    """
+    # 忽略传入的file和flush参数，强制使用我们的标准
+    print(message, *args, file=sys.stderr, flush=True)
+
+
+def format_error(error: Exception, context: str = "") -> None:
+    """
+    格式化错误输出
+    
+    Args:
+        error: 异常对象
+        context: 错误上下文描述
+    """
+    if context:
+        error_print(f"{context}: {error}")
+    else:
+        error_print(f"解析错误: {error}")
+
+
+# 为了向后兼容，也可以直接替换print
+def unified_print(message: Any, *args, **kwargs) -> None:
+    """
+    统一的打印函数，强制输出到stderr
+    """
+    print(message, *args, file=sys.stderr, flush=True)

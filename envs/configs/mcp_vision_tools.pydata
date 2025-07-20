@@ -1,0 +1,8 @@
+[
+    {'mcpServers': {
+        'rotate': {
+            'command': 'python3',
+            'args': ['envs/tools/rotate.py']
+        }
+    }}
+]
