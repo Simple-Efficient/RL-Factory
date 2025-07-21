@@ -956,7 +956,7 @@ class RayPPOTrainer:
         # find global_step_folder
         if self.config.trainer.resume_mode == "auto":
             if global_step_folder is None:
-                print("Training from scratch")
+                print("Training from scratch",file=sys.stderr, flush=True)
                 return 0
         else:
             if self.config.trainer.resume_mode == "resume_path":
@@ -1055,6 +1055,7 @@ class RayPPOTrainer:
                 non_tensor_batch_keys_to_pop = ["raw_prompt_ids"]
                 if "multi_modal_data" in batch.non_tensor_batch:
                     non_tensor_batch_keys_to_pop.append("multi_modal_data")
+                    non_tensor_batch_keys_to_pop.append("multi_modal_inputs")
                 if "raw_prompt" in batch.non_tensor_batch:
                     non_tensor_batch_keys_to_pop.append("raw_prompt")
                 if "tools_kwargs" in batch.non_tensor_batch:
