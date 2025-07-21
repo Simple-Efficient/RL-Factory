@@ -84,13 +84,39 @@ class Env(ABC):
             'data_source': data_source,
             'extra_info': extra_info
         }
+    def _replace_all_image_pads(original_str, count):
+        """
+        将一个字符串中所有的 '<image_pad>' 替换为指定数量的 '<image_pad>'。
+
+        参数:
+        original_str (str): 原始输入字符串。
+        count (int): 希望替换成的 '<image pad>' 的数量。
+
+        返回:
+        str: 替换后的新字符串。
+        """
+        # 1. 根据数量生成替换用的字符串
+        # 例如，当 count=3 时，replacement 为 "<image pad> <image pad> <image pad>"
+        replacement = ' '.join(['<image_pad>'] * count)
+        # 2. 使用 replace() 方法进行全局替换
+        new_str = original_str.replace('<image_pad>', replacement)
+        return new_str
     
     def get_step_reward(self, responses, format_score=0.1):
         step_reward = [1] * len(responses)
         return step_reward 
+    
+    def _mm_process(self, mm_output, image_result, temp_next_obs, processor):
+        if not mm_output:
+            return None, None, temp_next_obs
+        mm_data = processor.image_processor(image_result, return_tensors='pt')
+        temp_multi_modal_data = {"pixel_values": mm_data["pixel_values"], "image_grid_thw": mm_data["image_grid_thw"]}
+        temp_image_data = mm_output
+        temp_next_obs = self._replace_all_image_pads(temp_next_obs, (mm_data["image_grid_thw"][0].prod() // (processor.image_processor.merge_size**2)))
+        return temp_multi_modal_data, temp_image_data, temp_next_obs
+    
     def step(self, responses, tokenizer, image_data: List[List[Image.Image]], processor):
         print("start to the env step", file=sys.stderr, flush=True)
-        # print("start to the env step and process action", flush=True)
         cur_actions, tool_results = self.tool_manager.execute_actions(responses=responses, image_data=image_data)
         next_obs, dones, valid_action, is_tool, new_image = [], [], [], [], []
         raw_prompt = []
@@ -98,11 +124,11 @@ class Env(ABC):
         valid_tool = []
         
         for action, tool_result in zip(cur_actions, tool_results):
-            raw_next_obs = None
             temp_valid_tool = 0
             temp_multi_modal_data = None
+            temp_raw_prompt = None
             if action == 'answer':
-                temp_next_obs, temp_done, temp_valid_action, temp_is_tool, temp_image_data, temp_valid_tool = '', True, 0, 1, None, 0
+                temp_next_obs, temp_done, temp_valid_action, temp_is_tool, temp_image_data, temp_valid_tool, temp_raw_prompt = '', True, 0, 1, None, 0, None
             elif action == 'error':
                 temp_next_obs = self.tool_manager.get_prompt(
                     input_data=tool_result, 
@@ -110,7 +136,7 @@ class Env(ABC):
                     mode='tool_call', 
                     add_generation_prompt=True
                 )
-                temp_done, temp_valid_action, temp_is_tool, temp_image_data = False, 0, 0, None
+                temp_done, temp_valid_action, temp_is_tool, temp_image_data, temp_raw_prompt = False, 0, 0, None, temp_next_obs
             elif action == 'actions':
                 mm_output, image_result = (True, tool_result[1]) if isinstance(tool_result, Tuple) else (False, None) 
                 temp_next_obs = self.tool_manager.get_prompt(
@@ -120,8 +146,10 @@ class Env(ABC):
                     mode='tool_call',
                     add_generation_prompt=True
                 )
-                temp_multi_modal_data = None if not mm_output else {"pixel_values": (mm_data := self.processor.image_processor(image_result, return_tensors='pt'))["pixel_values"], "image_grid_thw": mm_data["image_grid_thw"]}
-                temp_done, temp_valid_action, temp_is_tool, temp_image_data = False, 0, 1, image_result
+                temp_raw_prompt = temp_next_obs.deepcopy()
+                temp_multi_modal_data, temp_image_data, temp_next_obs = self._mm_process(mm_output, image_result, temp_next_obs, self.processor)
+                temp_done, temp_valid_action, temp_is_tool, temp_valid_tool = False, 0, 1, 1 if mm_output else 0
+
             else:
                 raise ValueError('Unexpected action: {}'.format(action))
             
@@ -132,6 +160,7 @@ class Env(ABC):
             new_image.append(temp_image_data)
             multi_modal_data.append(temp_multi_modal_data)
             valid_tool.append(temp_valid_tool)
+            raw_prompt.append(temp_raw_prompt)
 
         print(f"image valid tool execute is {sum(valid_tool)} and overall batch size is  {len(dones)}",file=sys.stderr, flush=True)
         assert sum(valid_tool) == sum(1 for item in new_image if isinstance(item, Image.Image))
