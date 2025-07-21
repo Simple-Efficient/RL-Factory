@@ -1,5 +1,5 @@
-from .cache import CacheBase
-from .persist import PersistBase
+from .cache.cache_base import CacheBase
+from .persist.persist_base import PersistBase
 
 __all__ = ['CacheBase', 'PersistBase']
 

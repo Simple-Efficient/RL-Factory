@@ -2,7 +2,7 @@ import hashlib
 import json
 import time
 from typing import Any, Optional, Dict
-from cachebox import CacheBox
+from cachebox import Cache
 from .cache_base import CacheBase, CacheMode, EvictionPolicy
 
 class CacheBoxCache(CacheBase):
@@ -15,7 +15,7 @@ class CacheBoxCache(CacheBase):
             mode: 缓存模式
             eviction_policy: 缓存淘汰策略
         """
-        self.cache = CacheBox(max_size=max_size)
+        self.cache = Cache(max_size=max_size)
         self.mode = mode
         self.eviction_policy = eviction_policy
         self.stats = {

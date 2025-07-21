@@ -2,7 +2,7 @@ import os
 import json
 import gzip
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from .persist_base import PersistBase
 
 class DiskPersist(PersistBase):
