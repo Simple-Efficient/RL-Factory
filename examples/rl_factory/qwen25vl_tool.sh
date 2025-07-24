@@ -6,9 +6,9 @@ export OMP_NUM_THREADS=1
 export HYDRA_FULL_ERROR=1
 export RAY_DEDUP_LOGS=0
 
-MODEL_PATH="<PATH>"
+MODEL_PATH="/mnt/dolphinfs/hdd_pool/docker/share/jjw/visual_tool/Models/Qwen2.5-VL-3B-Instruct"
 DATE=$(date +"%Y-%m-%d-%H:%M:%S")
-DATA="<PATH>"
+DATA="/mnt/dolphinfs/hdd_pool/docker/share/jjw/visual_tool/724/dataset/textvqav1"
 
 TP=2
 Multiple=2
@@ -17,7 +17,7 @@ MINI=2
 
 python3 -m verl.trainer.main_ppo\
     algorithm.adv_estimator=grpo\
-    trainer.default_local_dir="<PATH>"\
+    trainer.default_local_dir="./"\
     data.train_files=$DATA/train.parquet\
     data.val_files=$DATA/test.parquet\
     data.train_batch_size=$((TP * Multiple))\
@@ -65,7 +65,7 @@ python3 -m verl.trainer.main_ppo\
     reward_model.reward_manager=parallel\
     algorithm.kl_ctrl.kl_coef=0.001\
     trainer.critic_warmup=0\
-    trainer.logger=['console','tensorboard','wandb']\
+    trainer.logger=['console','tensorboard']\
     trainer.project_name='GRPO_Visual'\
     trainer.experiment_name="Visual_7B_${DATE}"\
     trainer.n_gpus_per_node=2\
@@ -75,4 +75,4 @@ python3 -m verl.trainer.main_ppo\
     trainer.default_hdfs_dir=null\
     trainer.save_freq=50\
     trainer.test_freq=3\
-    trainer.total_epochs=10 2>&1 | tee.//${DATE}_grpo.log
+    trainer.total_epochs=10 2>&1 | tee ./${DATE}_grpo.log
