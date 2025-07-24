@@ -19,6 +19,16 @@ import json
 import io
 import base64
 
+import torch
+import torch.distributed as dist
+
+def print_rank_0(message):
+    """
+    如果 rank 为 0，则打印消息。
+    """
+    # 检查分布式环境是否已初始化，并且当前 rank 是否为 0
+    if dist.is_available() and dist.is_initialized() and dist.get_rank() == 0:
+        print(message, file=sys.stderr, flush=True)
 
 def parse_mcp_tools_config(file_path):
     try:
@@ -50,7 +60,7 @@ class Qwen25VLManager(ToolManager):
     def _load_custom_chat_template(self, tokenizer):
         self.chat_template_path = self.verl_config.get('load_custom_chat_template', None)
         if self.chat_template_path:
-            print(f"load chat template from {self.chat_template_path}", file=sys.stderr, flush=True)
+            print_rank_0(f"load chat template from {self.chat_template_path}")
             with open(self.chat_template_path, "r") as f:
                 chat_template_from_file = f.read()
             tokenizer.chat_template = chat_template_from_file
