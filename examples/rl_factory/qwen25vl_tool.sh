@@ -17,7 +17,6 @@ MINI=2
 
 python3 -m verl.trainer.main_ppo\
     algorithm.adv_estimator=grpo\
-    trainer.default_local_dir="./"\
     data.train_files=$DATA/train.parquet\
     data.val_files=$DATA/test.parquet\
     data.train_batch_size=$((TP * Multiple))\
@@ -71,7 +70,7 @@ python3 -m verl.trainer.main_ppo\
     trainer.n_gpus_per_node=2\
     trainer.nnodes=1\
     trainer.val_before_train=False\
-    trainer.default_local_dir="<PATH>"\
+    trainer.default_local_dir="./"\
     trainer.default_hdfs_dir=null\
     trainer.save_freq=50\
     trainer.test_freq=3\
