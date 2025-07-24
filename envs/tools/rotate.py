@@ -10,7 +10,7 @@ from typing import Annotated
 mcp = FastMCP("ImageRotateServer")
 
 
-@mcp.tool(required=["degree"])
+@mcp.tool()
 def rotate(degree: int, **context) -> str:
     """Rotate a Pillow image by specified degrees
     
