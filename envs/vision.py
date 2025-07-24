@@ -3,7 +3,8 @@ import json
 import string
 import torch
 import sys
-# from .base import Env
+from typing import List
+from PIL import Image
 from .mmbase import MMEnv
 
 class VisionEnv(MMEnv):
