@@ -1,10 +1,9 @@
 
 from PIL import Image
-from mcp.server.fastmcp import FastMCP, Parameter
+from mcp.server.fastmcp import FastMCP
 from io import BytesIO
 import base64
 import binascii
-from typing import Annotated
 
 # Initialize MCP server
 mcp = FastMCP("ImageRotateServer")
