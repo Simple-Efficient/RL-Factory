@@ -22,7 +22,6 @@ import logging
 from PIL import Image, ImageFile
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - PROCESS %(process)d - %(message)s')
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 instruction_following = (
