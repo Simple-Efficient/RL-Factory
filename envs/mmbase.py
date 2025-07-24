@@ -48,7 +48,6 @@ class MMEnv(ABC):
         self.use_verify_tool = False
         self.use_process_reward = config.get('use_process_reward', False)
         self.chat_template = config.get('chat_template', None)
-        self.load_chat_tempalte()
         
     def verify_tool(self, data_source, solution_str, ground_truth, extra_info):
         # If you need a tool to evaluate the generated response, you need to modify the following code

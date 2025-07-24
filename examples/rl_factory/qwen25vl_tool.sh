@@ -14,7 +14,7 @@ TP=2
 Multiple=2
 Val_Multiple=2
 MINI=2
-
+export CUDA_VISIBLE_DEVICES="6,7"
 python3 -m verl.trainer.main_ppo\
     algorithm.adv_estimator=grpo\
     data.train_files=$DATA/train.parquet\
