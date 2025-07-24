@@ -11,9 +11,9 @@ DATE=$(date +"%Y-%m-%d-%H:%M:%S")
 DATA="/mnt/dolphinfs/hdd_pool/docker/share/jjw/visual_tool/724/dataset/textvqav2"
 
 TP=1
-Multiple=2
-Val_Multiple=2
-MINI=2
+Multiple=1
+Val_Multiple=1
+MINI=1
 export CUDA_VISIBLE_DEVICES="6,7"
 python3 -m verl.trainer.main_ppo\
     algorithm.adv_estimator=grpo\
@@ -67,7 +67,7 @@ python3 -m verl.trainer.main_ppo\
     trainer.logger=['console','tensorboard']\
     trainer.project_name='GRPO_Visual'\
     trainer.experiment_name="Visual_7B_${DATE}"\
-    trainer.n_gpus_per_node=2\
+    trainer.n_gpus_per_node=1\
     trainer.nnodes=1\
     trainer.val_before_train=False\
     trainer.default_local_dir="./"\
