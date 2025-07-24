@@ -52,6 +52,7 @@ python3 -m verl.trainer.main_ppo\
     actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=1\
     actor_rollout_ref.rollout.multi_turn.enable=True\
     actor_rollout_ref.env.name=vision\
+    actor_rollout_ref.env.mmtool=True\
     actor_rollout_ref.env.load_custom_chat_template=envs/configs/chat_template.jinja\
     actor_rollout_ref.env.mcp_mode=stdio\
     actor_rollout_ref.env.tool_manager=qwen2_5_vl\

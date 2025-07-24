@@ -462,7 +462,7 @@ actor_rollout_ref:
     name: base
     model_type: null
     load_custom_chat_template: null
-    mmtool: True
+    mmtool: False
     tool_manager: null
     mcp_mode: stdio
     tool_name_selected: []  # selected tools for using when call a sse MCP server; default [] will call all tools
