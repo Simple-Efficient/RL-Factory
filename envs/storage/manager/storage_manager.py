@@ -2,9 +2,9 @@ import argparse
 import asyncio
 from typing import Optional, Dict, Any, List
 from datetime import datetime
-from .cache.cache_base import CacheMode, EvictionPolicy
-from .cache.cachebox_cache import CacheBoxCache
-from .persist.disk_persist import DiskPersist
+from ..cache.cache_base import CacheMode, EvictionPolicy
+from ..cache.cachebox_cache import CacheBoxCache
+from ..persist.disk_persist import DiskPersist
 
 
 class StorageManager:

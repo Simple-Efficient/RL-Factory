@@ -7,15 +7,18 @@ from verl import DataProto
 from envs.tool_manager import TOOL_MANAGER_REGISTRY
 from verl.utils.model import compute_position_id_with_mask
 from verl.utils.torch_functional import tokenize_and_postprocess_data
+from typing import List, Tuple
+from PIL import Image
+import sys
 
 
-class Env(ABC):
+
+class MMEnv(ABC):
     def __init__(self, config, centralized_actor=None):
-        tool_manager_name = config.get('tool_manager')
+        tool_manager_name = config.get('tool_manager', 'qwen3')
         # 检查是否指定工具管理器，如果没有采用自适应模式Add commentMore actions
         if not tool_manager_name:
             tool_manager_name = "adaptive"
-        # 检查是否使用集中式工具管理器
         if tool_manager_name.startswith('centralized_'):
             if centralized_actor is None:
                 raise ValueError(f"使用集中式工具管理器 '{tool_manager_name}' 需要提供 centralized_actor 参数")
@@ -31,17 +34,21 @@ class Env(ABC):
                     tool_manager_name = 'qwen3'
                 elif 'qwen2' in model_type:
                     tool_manager_name = 'qwen2_5'
-                elif'llama' in model_type:
-                    tool_manager_name = 'llama3'
+                elif 'qwen2_5_vl' in model_type:
+                    tool_manager_name = 'qwen2_5_vl'
+                elif 'llama' in model_type:
+                    tool_manager_name = 'llama3'  
                 else:
                     tool_manager_name = model_type
-                    raise ValueError(f"'{tool_manager_name}' 需要进行适配，请添加一个对应的tool_manager")
-            
+                    raise ValueError(f"'{tool_manager_name}' 需要进行适配，请添加一个对应的tool_manager")                   
+
             self.tool_manager = TOOL_MANAGER_REGISTRY[tool_manager_name](verl_config=config)
         
         self.max_prompt_length = config.get('max_prompt_length', 2048)
         self.use_verify_tool = False
         self.use_process_reward = config.get('use_process_reward', False)
+        self.chat_template = config.get('chat_template', None)
+        self.load_chat_tempalte()
         
     def verify_tool(self, data_source, solution_str, ground_truth, extra_info):
         # If you need a tool to evaluate the generated response, you need to modify the following code
@@ -64,6 +71,9 @@ class Env(ABC):
 
         # decode
         prompt_str = tokenizer.decode(valid_prompt_ids, skip_special_tokens=True)
+        # prompt_str = tokenizer.decode(valid_prompt_ids)
+        # response_str = tokenizer.decode(valid_response_ids)
+        # response_str = response_str.replace("<|image_pad|>", "") 
         response_str = tokenizer.decode(valid_response_ids, skip_special_tokens=True)
         ground_truth = data_item.non_tensor_batch['reward_model']['ground_truth']
         data_source = data_item.non_tensor_batch['data_source']
@@ -76,20 +86,51 @@ class Env(ABC):
             'data_source': data_source,
             'extra_info': extra_info
         }
+    def _replace_all_image_pads(original_str, count):
+        """
+        将一个字符串中所有的 '<image_pad>' 替换为指定数量的 '<image_pad>'。
+
+        参数:
+        original_str (str): 原始输入字符串。
+        count (int): 希望替换成的 '<image pad>' 的数量。
+
+        返回:
+        str: 替换后的新字符串。
+        """
+        # 1. 根据数量生成替换用的字符串
+        # 例如，当 count=3 时，replacement 为 "<image pad> <image pad> <image pad>"
+        replacement = ' '.join(['<image_pad>'] * count)
+        # 2. 使用 replace() 方法进行全局替换
+        new_str = original_str.replace('<image_pad>', replacement)
+        return new_str
     
     def get_step_reward(self, responses, format_score=0.1):
-        
         step_reward = [1] * len(responses)
+        return step_reward 
     
-        return step_reward
-
-    def step(self, responses, tokenizer):
-        cur_actions, tool_results = self.tool_manager.execute_actions(responses=responses)
-        next_obs, dones, valid_action, is_tool = [], [], [], []
-
+    def _mm_process(self, mm_output, image_result, temp_next_obs, processor):
+        if not mm_output:
+            return None, None, temp_next_obs
+        mm_data = processor.image_processor(image_result, return_tensors='pt')
+        temp_multi_modal_data = {"pixel_values": mm_data["pixel_values"], "image_grid_thw": mm_data["image_grid_thw"]}
+        temp_image_data = mm_output
+        temp_next_obs = self._replace_all_image_pads(temp_next_obs, (mm_data["image_grid_thw"][0].prod() // (processor.image_processor.merge_size**2)))
+        return temp_multi_modal_data, temp_image_data, temp_next_obs
+    
+    def step(self, responses, tokenizer, image_data: List[List[Image.Image]]):
+        print("start to the env step", file=sys.stderr, flush=True)
+        cur_actions, tool_results = self.tool_manager.execute_actions(responses=responses, image_data=image_data)
+        next_obs, dones, valid_action, is_tool, new_image = [], [], [], [], []
+        raw_prompt = []
+        multi_modal_data = []
+        valid_tool = []
+        
         for action, tool_result in zip(cur_actions, tool_results):
+            temp_valid_tool = 0
+            temp_multi_modal_data = None
+            temp_raw_prompt = None
             if action == 'answer':
-                temp_next_obs, temp_done, temp_valid_action, temp_is_tool = '', True, 1, 0
+                temp_next_obs, temp_done, temp_valid_action, temp_is_tool, temp_image_data, temp_valid_tool, temp_raw_prompt = '', True, 0, 1, None, 0, None
             elif action == 'error':
                 temp_next_obs = self.tool_manager.get_prompt(
                     input_data=tool_result, 
@@ -97,15 +138,19 @@ class Env(ABC):
                     mode='tool_call', 
                     add_generation_prompt=True
                 )
-                temp_done, temp_valid_action, temp_is_tool = False, 0, 0
+                temp_done, temp_valid_action, temp_is_tool, temp_image_data, temp_raw_prompt = False, 0, 0, None, temp_next_obs
             elif action == 'actions':
+                mm_output, image_result = (True, tool_result[1]) if isinstance(tool_result, Tuple) else (False, None) 
                 temp_next_obs = self.tool_manager.get_prompt(
-                    input_data=tool_result, 
+                    input_data=tool_result if not mm_output else tool_result[0],
                     tokenizer=tokenizer,
                     mode='tool_call',
                     add_generation_prompt=True
                 )
-                temp_done, temp_valid_action, temp_is_tool = False, 1, 1
+                temp_raw_prompt = temp_next_obs.deepcopy()
+                temp_multi_modal_data, temp_image_data, temp_next_obs = self._mm_process(mm_output, image_result, temp_next_obs, self.processor)
+                temp_done, temp_valid_action, temp_is_tool, temp_valid_tool = False, 0, 1, 1 if mm_output else 0
+
             else:
                 raise ValueError('Unexpected action: {}'.format(action))
             
@@ -113,9 +158,14 @@ class Env(ABC):
             dones.append(temp_done)
             valid_action.append(temp_valid_action)
             is_tool.append(temp_is_tool)
+            new_image.append(temp_image_data)
+            multi_modal_data.append(temp_multi_modal_data)
+            valid_tool.append(temp_valid_tool)
+            raw_prompt.append(temp_raw_prompt)
 
-        
-        return next_obs, dones, valid_action, is_tool
+        print(f"image valid tool execute is {sum(valid_tool)} and overall batch size is  {len(dones)}",file=sys.stderr, flush=True)
+        assert sum(valid_tool) == sum(1 for item in new_image if isinstance(item, Image.Image))
+        return next_obs, dones, valid_action, is_tool, new_image, raw_prompt, multi_modal_data, valid_tool
     
 
     def compute_score(self, reward_rollout_wg, reward_tokenizer, tokenizer, data: DataProto, if_val=False, use_process_reward=False):

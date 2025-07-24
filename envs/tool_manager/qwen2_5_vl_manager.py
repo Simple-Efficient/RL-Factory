@@ -37,7 +37,7 @@ class Qwen25VLManager(ToolManager):
         if isinstance(verl_config, dict):
             verl_config = OmegaConf.to_container(verl_config)
         super().__init__(verl_config)
-        # self.functions = []
+        self.verl_config = verl_config
         self.generate_cfg = {
             'fncall_prompt_type': 'nous',
             'function_choice': 'auto',  # 注释掉这行
@@ -45,6 +45,16 @@ class Qwen25VLManager(ToolManager):
             'lang': 'en',
             'max_input_tokens': 10000
         }
+
+    def _load_custom_chat_template(self, tokenizer):
+        self.chat_template_path = self.verl_config.get('load_custom_chat_template', None)
+        if self.chat_template_path:
+            print(f"load chat template from {self.chat_template_path}", file=sys.stderr, flush=True)
+            with open(self.chat_template_path, "r") as f:
+                chat_template_from_file = f.read()
+            tokenizer.chat_template = chat_template_from_file
+        return tokenizer
+
 
     def get_tool(self, name_or_short_name: str):
         """通过名称或简写获取工具
@@ -336,8 +346,9 @@ class Qwen25VLManager(ToolManager):
         return parsed_tools
 
     
-    def get_prompt(self, input_data, tokenizer, processor, mode='initial', add_generation_prompt=True):
-        assert mode in ['initial', 'tool_call', 'assistant_response','multimodal_tool_call'], 'Invalid mode: {}'.format(mode)
+    def get_prompt(self, input_data, tokenizer, mode='initial', add_generation_prompt=True):
+        tokenizer = self._load_custom_chat_template(tokenizer)
+        assert mode in ['initial', 'tool_call', 'assistant_response'], 'Invalid mode: {}'.format(mode)
         base_chat = [
             {'role': SYSTEM, 'content': 'base'},
             {'role': USER, 'content': 'base'},
@@ -366,13 +377,6 @@ class Qwen25VLManager(ToolManager):
             
             temp_prompt_with_chat_template = tokenizer.apply_chat_template(
                 conversation=base_chat + chat, tools=self.functions, 
-                tokenize=False, add_generation_prompt=add_generation_prompt
-            )
-            prompt_with_chat_template = temp_prompt_with_chat_template.replace(base_prompt, '')
-        elif mode == 'multimodal_tool_call':
-            chat = input_data
-            temp_prompt_with_chat_template = tokenizer.apply_chat_template(
-                conversation=base_chat + chat, tools=[func.function for func in self.tool_map.values()], 
                 tokenize=False, add_generation_prompt=add_generation_prompt
             )
             prompt_with_chat_template = temp_prompt_with_chat_template.replace(base_prompt, '')
