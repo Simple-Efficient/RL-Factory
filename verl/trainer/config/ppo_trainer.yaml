@@ -476,6 +476,12 @@ actor_rollout_ref:
     parallel_sse_tool_call:
       is_enabled: True
       num_instances: 3
+    cache: single
+    persist: false
+    eviction: lru
+    max_size: 1000
+    persist_dir: ./cache
+    local_cache: null
 
 
 # configs for the critic
