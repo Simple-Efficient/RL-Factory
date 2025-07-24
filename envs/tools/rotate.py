@@ -1,6 +1,6 @@
 
 from PIL import Image
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP,Context
 from io import BytesIO
 import base64
 import binascii
@@ -9,8 +9,8 @@ import binascii
 mcp = FastMCP("ImageRotateServer")
 
 
-@mcp.tool(exclude_args=["img_base64"])
-def rotate(degree: int, img_base64) -> str:
+@mcp.tool()
+def rotate(degree: int, ctx:Context) -> str:
     """Rotate a Pillow image by specified degrees
     
     Args:
@@ -22,7 +22,7 @@ def rotate(degree: int, img_base64) -> str:
     """
     print("================= call image_rotate tool ==================")
     # img_base64 = context.get('img_base64')
-
+    img_base64 = ctx
     # img_base64 = 
     # Validate required parameters
     if img_base64 is None:
