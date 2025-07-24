@@ -10,7 +10,7 @@ MODEL_PATH="/mnt/dolphinfs/hdd_pool/docker/share/jjw/visual_tool/Models/Qwen2.5-
 DATE=$(date +"%Y-%m-%d-%H:%M:%S")
 DATA="/mnt/dolphinfs/hdd_pool/docker/share/jjw/visual_tool/724/dataset/textvqav2"
 
-TP=2
+TP=1
 Multiple=2
 Val_Multiple=2
 MINI=2
