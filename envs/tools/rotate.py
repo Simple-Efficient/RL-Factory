@@ -11,8 +11,7 @@ mcp = FastMCP("ImageRotateServer")
 
 
 @mcp.tool(required=["degree"])
-def rotate(img_base64: Annotated[str, Parameter(ignore=True)], 
-           degree: int) -> str:
+def rotate(degree: int, **context) -> str:
     """Rotate a Pillow image by specified degrees
     
     Args:
@@ -23,7 +22,7 @@ def rotate(img_base64: Annotated[str, Parameter(ignore=True)],
         str: Rotated image as base64 encoded string
     """
     print("================= call image_rotate tool ==================")
-    
+    img_base64 = context.get('img_base64')
     # Validate required parameters
     if img_base64 is None:
         return "⚠️ Error: img_base64 parameter is required"
