@@ -97,6 +97,8 @@ class MMToolUtils(ToolUtils):
             process_response,
             skip_special_tokens=False,
         )
+        
+        breakpoint()
         infos_str, dones, _, _, new_image_data, raw_prompt, multi_modal_data, valid_tool = self.env_object.step(
             responses=responses_str, tokenizer=self.tokenizer, image_data=self.image_list
         )
