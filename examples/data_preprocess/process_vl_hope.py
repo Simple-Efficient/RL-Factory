@@ -40,8 +40,10 @@ if __name__ == "__main__":
     parser.add_argument("--hdfs_dir", default=None)
 
     args = parser.parse_args()
-    data_source = "/data/user/qxiao183/qxiao183test2/jjw/datasets/textvqa/train-00001-of-00020.parquet"
-    data_source1 = "/data/user/qxiao183/qxiao183test2/jjw/datasets/textvqa/train-00002-of-00020.parquet"
+    # data_source = "/data/user/qxiao183/qxiao183test2/jjw/datasets/textvqa/train-00001-of-00020.parquet"
+    # data_source1 = "/data/user/qxiao183/qxiao183test2/jjw/datasets/textvqa/train-00002-of-00020.parquet"
+    data_source = ""
+    data_source1 = ""
     train_dataset = datasets.load_dataset("parquet",data_files = data_source)["train"]
     test_dataset = datasets.load_dataset("parquet",data_files = data_source1)["train"]
 
@@ -72,7 +74,7 @@ if __name__ == "__main__":
                             "content": prompt,
                         },
                     ],
-                    "images": images,
+                    "images": [images],
                     "ability": "math",
                     "reward_model": {"style": "rule", "ground_truth": answer},
                     "extra_info": {
