@@ -37,14 +37,14 @@ instruction_following = (
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # parser.add_argument("--local_dir", default="/data/user/qxiao183/qxiao183test2/jjw/datasets/textvqav4")
-    parser.add_argument("--local_dir", default="share/jjw/visual_tool/724/dataset/textvqav1")
+    parser.add_argument("--local_dir", default="/mnt/dolphinfs/hdd_pool/docker/share/jjw/visual_tool/724/dataset/textvqav2")
     parser.add_argument("--hdfs_dir", default=None)
 
     args = parser.parse_args()
     # data_source = "/data/user/qxiao183/qxiao183test2/jjw/datasets/textvqa/train-00001-of-00020.parquet"
     # data_source1 = "/data/user/qxiao183/qxiao183test2/jjw/datasets/textvqa/train-00002-of-00020.parquet"
     data_source = "/mnt/dolphinfs/hdd_pool/docker/share/jjw/visual_tool/huggingface.co/datasets/lmms-lab/textvqa/data/train-00000-of-00020.parquet"
-    data_source1 = "/mnt/dolphinfs/hdd_pool/docker/share/jjw/visual_tool/huggingface.co/datasets/lmms-lab/textvqa/data/train-00000-of-00020.parquet"
+    data_source1 = "/mnt/dolphinfs/hdd_pool/docker/share/jjw/visual_tool/huggingface.co/datasets/lmms-lab/textvqa/data/train-00001-of-00020.parquet"
     train_dataset = datasets.load_dataset("parquet",data_files = data_source)["train"]
     test_dataset = datasets.load_dataset("parquet",data_files = data_source1)["train"]
 

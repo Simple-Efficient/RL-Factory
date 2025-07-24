@@ -8,7 +8,7 @@ export RAY_DEDUP_LOGS=0
 
 MODEL_PATH="/mnt/dolphinfs/hdd_pool/docker/share/jjw/visual_tool/Models/Qwen2.5-VL-3B-Instruct"
 DATE=$(date +"%Y-%m-%d-%H:%M:%S")
-DATA="/mnt/dolphinfs/hdd_pool/docker/share/jjw/visual_tool/724/dataset/textvqav1"
+DATA="/mnt/dolphinfs/hdd_pool/docker/share/jjw/visual_tool/724/dataset/textvqav2"
 
 TP=2
 Multiple=2
