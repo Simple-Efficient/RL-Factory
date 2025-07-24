@@ -66,7 +66,8 @@ from verl.utils.model import compute_position_id_with_mask
 from verl.utils.py_functional import convert_to_regular_types
 from verl.workers.sharding_manager.fsdp_ulysses import FSDPUlyssesShardingManager
 from verl.protocol import broadcast_data_proto
-from envs.utils.tool_utils import ToolUtils, MMToolUtils
+from envs.utils.tool_utils import ToolUtils
+from envs.utils.mm_tool_utils import MMToolUtils
 from envs import TOOL_ENV_REGISTRY
 
 logger = logging.getLogger(__file__)
