@@ -9,7 +9,7 @@ import binascii
 mcp = FastMCP("ImageRotateServer")
 
 
-@mcp.tool(required=["degree"],exclude_args=["img_base64"])
+@mcp.tool(exclude_args=["img_base64"])
 def rotate(degree: int, img_base64) -> str:
     """Rotate a Pillow image by specified degrees
     
