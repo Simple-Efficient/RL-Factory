@@ -15,7 +15,7 @@ class CacheBoxCache(CacheBase):
             mode: 缓存模式
             eviction_policy: 缓存淘汰策略
         """
-        self.cache = Cache(max_size=max_size)
+        self.cache = Cache(maxsize=max_size)
         self.mode = mode
         self.eviction_policy = eviction_policy
         self.stats = {
