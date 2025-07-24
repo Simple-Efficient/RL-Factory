@@ -45,6 +45,7 @@ class Qwen25VLManager(ToolManager):
             'lang': 'en',
             'max_input_tokens': 10000
         }
+        self.tokenizer = None
 
     def _load_custom_chat_template(self, tokenizer):
         self.chat_template_path = self.verl_config.get('load_custom_chat_template', None)
@@ -347,7 +348,9 @@ class Qwen25VLManager(ToolManager):
 
     
     def get_prompt(self, input_data, tokenizer, mode='initial', add_generation_prompt=True):
-        tokenizer = self._load_custom_chat_template(tokenizer)
+        if self.tokenizer is None:
+            self.tokenizer = self._load_custom_chat_template(tokenizer)
+        tokenizer = self.tokenizer
         assert mode in ['initial', 'tool_call', 'assistant_response'], 'Invalid mode: {}'.format(mode)
         base_chat = [
             {'role': SYSTEM, 'content': 'base'},
