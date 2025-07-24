@@ -14,7 +14,7 @@ logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "INFO"))
 
 class MMToolUtils(ToolUtils):
-    def __init__(self, tokenizer, processor meta_info, config, env_object):
+    def __init__(self, tokenizer, processor, meta_info, config, env_object):
         super().__init__(tokenizer, meta_info, config, env_object)
 
         
