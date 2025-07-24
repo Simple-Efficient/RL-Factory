@@ -16,15 +16,10 @@
 import argparse
 import logging
 import os
-import io
 import random
-import argparse
-import os
 import datasets
 import logging
-import os
 from PIL import Image, ImageFile
-from verl.utils.hdfs_io import copy, makedirs
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - PROCESS %(process)d - %(message)s')
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -46,8 +41,6 @@ if __name__ == "__main__":
     parser.add_argument("--hdfs_dir", default=None)
 
     args = parser.parse_args()
-
-    # data_source = "/mnt/dolphinfs/hdd_pool/docker/share/jjw/visual_tool/huggingface.co/datasets/hiyouga/geometry3k"
     data_source = "/data/user/qxiao183/qxiao183test2/jjw/datasets/textvqa/train-00001-of-00020.parquet"
     data_source1 = "/data/user/qxiao183/qxiao183test2/jjw/datasets/textvqa/train-00002-of-00020.parquet"
     train_dataset = datasets.load_dataset("parquet",data_files = data_source)["train"]
