@@ -164,6 +164,7 @@ class MMEnv(ABC):
 
         print(f"image valid tool execute is {sum(valid_tool)} and overall batch size is  {len(dones)}",file=sys.stderr, flush=True)
         assert sum(valid_tool) == sum(1 for item in new_image if isinstance(item, Image.Image))
+        breakpoint()
         return next_obs, dones, valid_action, is_tool, new_image, raw_prompt, multi_modal_data, valid_tool
     
 
