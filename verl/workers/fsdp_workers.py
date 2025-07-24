@@ -742,7 +742,7 @@ class ActorRolloutRefWorker(Worker):
             
             for step in range(max_turns):
                 prompts = prompts.to(torch.cuda.current_device())
-                output = self.rollout.generate_sequences(prompts=prompts)
+                output = self.rollout.generate_sequences(prompts=prompts, tokenizer=self.tokenizer)
 
                 log_gpu_memory_usage('After rollout generation', logger=logger)
                 output = output.to('cpu')
