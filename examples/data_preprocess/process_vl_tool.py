@@ -98,6 +98,7 @@ if __name__ == "__main__":
                 # print(f"image size: {images.size}")
                 images = images.resize((1024,1024), Image.Resampling.BILINEAR)
                 angle = random.choice([90, 180, 270])
+                images = images.rotate(angle)
                 imgs_pil: List[Image.Image] = []
                 if isinstance(images, list):
                     for img in images:
@@ -122,7 +123,16 @@ if __name__ == "__main__":
                     "prompt": [
                         {
                             "role": "system",
-                            "content": ("You are a helpful assistant. ")  + instruction_following
+                            "content": (
+                                "You are a helpful assistant. "
+                                "\n# Tools\nEvery turn you can call one function at most among the following functions to assist with the user query."
+                                "\nYou are provided with function signatures within <tools></tools> XML tags:\n<tools>\n"
+                                '{"type": "function", "function": {"name": "rotate", "description": "Rotate a Pillow image by specified degrees", "parameters": {"type": "object", "properties": {"degree": {"type": "integer", "description": "Rotation angle in degrees"}}, "required": ["degree"]}}}\n</tools>\n'
+                                'For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n'
+                                '<tool_call>\n{"name": <function-name>, "arguments": <args-json-object>}\n</tool_call>\nThe tool response will wrapped with <tool_response></tool_response> XML tags. '
+                                
+                                
+    )  + instruction_following
                         },
                         {
                             "role": "user",
