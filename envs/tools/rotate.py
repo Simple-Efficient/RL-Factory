@@ -9,8 +9,8 @@ import binascii
 mcp = FastMCP("ImageRotateServer")
 
 
-@mcp.tool(required=["degree"],exclude_args=["context"])
-def rotate(degree: int, **context) -> str:
+@mcp.tool(required=["degree"],exclude_args=["img_base64"])
+def rotate(degree: int, img_base64) -> str:
     """Rotate a Pillow image by specified degrees
     
     Args:
@@ -21,7 +21,9 @@ def rotate(degree: int, **context) -> str:
         str: Rotated image as base64 encoded string
     """
     print("================= call image_rotate tool ==================")
-    img_base64 = context.get('img_base64')
+    # img_base64 = context.get('img_base64')
+
+    # img_base64 = 
     # Validate required parameters
     if img_base64 is None:
         return "⚠️ Error: img_base64 parameter is required"
