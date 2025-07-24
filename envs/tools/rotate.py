@@ -1,16 +1,18 @@
 
 from PIL import Image
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Parameter
 from io import BytesIO
 import base64
 import binascii
+from typing import Annotated
 
 # Initialize MCP server
 mcp = FastMCP("ImageRotateServer")
 
 
-@mcp.tool()
-def rotate(img_base64: str = None, degree: int = None) -> str:
+@mcp.tool(required=["degree"])
+def rotate(img_base64: Annotated[str, Parameter(ignore=True)], 
+           degree: int) -> str:
     """Rotate a Pillow image by specified degrees
     
     Args:
