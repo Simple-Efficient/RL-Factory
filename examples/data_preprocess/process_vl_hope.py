@@ -60,7 +60,7 @@ if __name__ == "__main__":
                 images = example.pop("image")
                 images = images.resize((1024,1024), Image.Resampling.BILINEAR)
                 angle = random.choice([90, 180, 270])
-                images = images.rotate(angle)
+                images = [images.rotate(angle)]
                     
                     
                 data = {
@@ -75,7 +75,7 @@ if __name__ == "__main__":
                             "content": prompt,
                         },
                     ],
-                    "images": [images],
+                    "images": images,
                     "ability": "math",
                     "reward_model": {"style": "rule", "ground_truth": answer},
                     "extra_info": {
