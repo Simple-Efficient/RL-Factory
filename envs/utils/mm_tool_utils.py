@@ -102,6 +102,7 @@ class MMToolUtils(ToolUtils):
         infos_str, dones, _, _, new_image_data, raw_prompt, multi_modal_data, valid_tool = self.env_object.step(
             responses=responses_str, tokenizer=self.tokenizer, image_data=self.image_list
         )
+        breakpoint()
         for idx, batch_idx in enumerate(batch_idxs):
             if multi_modal_data[idx] is not None:
                 self.multi_modal_inputs[batch_idx].append(multi_modal_data[idx])
