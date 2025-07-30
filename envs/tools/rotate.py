@@ -46,6 +46,20 @@ def mcp_tool_with_hidden_params(hidden_params: List[str] = None, **kwargs):
         return decorated_func
     return decorator
 
+
+# @mcp.tool()
+# def rotate(degree:int) -> str:
+#     """通过指定的角度旋转图像
+
+#     Args:
+#         degree (int): 旋转角度 (正数表示顺时针，负数表示逆时针)
+
+#     Returns:
+#         str: 旋转后图像的 Base64 编码字符串
+#     """
+#     return "Hi"
+
+
 @mcp_tool_with_hidden_params(hidden_params=["img_base64"])
 def rotate(degree: int, img_base64: str) -> str:
     """通过指定的角度旋转图像

@@ -10,7 +10,7 @@ from verl.utils.torch_functional import tokenize_and_postprocess_data
 from typing import List, Tuple
 from PIL import Image
 import sys
-
+from copy import deepcopy
 
 
 class MMEnv(ABC):
@@ -43,7 +43,9 @@ class MMEnv(ABC):
                     raise ValueError(f"'{tool_manager_name}' 需要进行适配，请添加一个对应的tool_manager")                   
 
             self.tool_manager = TOOL_MANAGER_REGISTRY[tool_manager_name](verl_config=config)
-        
+        # breakpoint()
+        # self.processor = self.tool_manager.processor
+        # breakpoint()
         self.max_prompt_length = config.get('max_prompt_length', 2048)
         self.use_verify_tool = False
         self.use_process_reward = config.get('use_process_reward', False)
@@ -85,7 +87,7 @@ class MMEnv(ABC):
             'data_source': data_source,
             'extra_info': extra_info
         }
-    def _replace_all_image_pads(original_str, count):
+    def _replace_all_image_pads(self, original_str, count):
         """
         将一个字符串中所有的 '<image_pad>' 替换为指定数量的 '<image_pad>'。
 
@@ -112,11 +114,13 @@ class MMEnv(ABC):
             return None, None, temp_next_obs
         mm_data = processor.image_processor(image_result, return_tensors='pt')
         temp_multi_modal_data = {"pixel_values": mm_data["pixel_values"], "image_grid_thw": mm_data["image_grid_thw"]}
-        temp_image_data = mm_output
-        temp_next_obs = self._replace_all_image_pads(temp_next_obs, (mm_data["image_grid_thw"][0].prod() // (processor.image_processor.merge_size**2)))
+        temp_image_data = image_result
+        temp_next_obs = self._replace_all_image_pads(temp_next_obs, mm_data["image_grid_thw"][0].prod() // (processor.image_processor.merge_size**2))
         return temp_multi_modal_data, temp_image_data, temp_next_obs
     
-    def step(self, responses, tokenizer, image_data: List[List[Image.Image]]):
+    def step(self, responses, processor, image_data: List[List[Image.Image]]):
+        # breakpoint()
+        tokenizer = processor.tokenizer
         print("start to the env step", file=sys.stderr, flush=True)
         cur_actions, tool_results = self.tool_manager.execute_actions(responses=responses, image_data=image_data)
         next_obs, dones, valid_action, is_tool, new_image = [], [], [], [], []
@@ -125,6 +129,13 @@ class MMEnv(ABC):
         valid_tool = []
         
         for action, tool_result in zip(cur_actions, tool_results):
+            tool_result = tool_result[0]
+            try:
+                image_result = tool_result[1]
+            except:
+                image_result = None
+                breakpoint()
+            mm_output = True if image_result is not None else False
             temp_valid_tool = 0
             temp_multi_modal_data = None
             temp_raw_prompt = None
@@ -139,15 +150,16 @@ class MMEnv(ABC):
                 )
                 temp_done, temp_valid_action, temp_is_tool, temp_image_data, temp_raw_prompt = False, 0, 0, None, temp_next_obs
             elif action == 'actions':
-                mm_output, image_result = (True, tool_result[1]) if isinstance(tool_result, Tuple) else (False, None) 
+                # mm_output, image_result = (True, tool_result[1]) if isinstance(tool_result, Tuple) else (False, None) 
+                breakpoint()
                 temp_next_obs = self.tool_manager.get_prompt(
-                    input_data=tool_result if not mm_output else tool_result[0],
+                    input_data=tool_result[0],
                     tokenizer=tokenizer,
                     mode='tool_call',
                     add_generation_prompt=True
                 )
-                temp_raw_prompt = temp_next_obs.deepcopy()
-                temp_multi_modal_data, temp_image_data, temp_next_obs = self._mm_process(mm_output, image_result, temp_next_obs, self.processor)
+                temp_raw_prompt = deepcopy(temp_next_obs)
+                temp_multi_modal_data, temp_image_data, temp_next_obs = self._mm_process(mm_output, image_result, temp_next_obs, processor)
                 temp_done, temp_valid_action, temp_is_tool, temp_valid_tool = False, 0, 1, 1 if mm_output else 0
 
             else:
@@ -163,8 +175,9 @@ class MMEnv(ABC):
             raw_prompt.append(temp_raw_prompt)
 
         print(f"image valid tool execute is {sum(valid_tool)} and overall batch size is  {len(dones)}",file=sys.stderr, flush=True)
-        assert sum(valid_tool) == sum(1 for item in new_image if isinstance(item, Image.Image))
         breakpoint()
+        assert sum(valid_tool) == sum(1 for item in new_image if isinstance(item, Image.Image))
+        
         return next_obs, dones, valid_action, is_tool, new_image, raw_prompt, multi_modal_data, valid_tool
     
 

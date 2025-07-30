@@ -16,6 +16,7 @@ logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "INFO"))
 class MMToolUtils(ToolUtils):
     def __init__(self, tokenizer, processor, meta_info, config, env_object):
         super().__init__(tokenizer, meta_info, config, env_object)
+        self.processor = processor
 
         
         pad_token_id = meta_info.get('pad_token_id')
@@ -98,9 +99,9 @@ class MMToolUtils(ToolUtils):
             skip_special_tokens=False,
         )
         
-        breakpoint()
+        # breakpoint()
         infos_str, dones, _, _, new_image_data, raw_prompt, multi_modal_data, valid_tool = self.env_object.step(
-            responses=responses_str, tokenizer=self.tokenizer, image_data=self.image_list
+            responses=responses_str, processor=self.processor, image_data=self.image_list
         )
         breakpoint()
         for idx, batch_idx in enumerate(batch_idxs):
@@ -184,7 +185,7 @@ class MMToolUtils(ToolUtils):
         self.loop_cnt += 1
         return next_data
 
-    def compose_final_output(self, step) -> DataProto:
+    def compose_final_output(self, step, group) -> DataProto:
         print(f"[compose_final_output] start compose the final output, step is {step}", flush=True, file=sys.stderr)
         """Compose final generation output."""
         input_ids_list = []
@@ -202,8 +203,10 @@ class MMToolUtils(ToolUtils):
             loss_mask_list.append(loss_mask)
             length_list.append(len(prompts_list))
 
-        max_response_length = torch.tensor([max(length_list)])
-        dist.all_reduce(max_response_length, op=dist.ReduceOp.MAX)
+        max_response_length = torch.tensor([max(length_list)], device=torch.cuda.current_device())
+        # because only tp=0 will exec postprocess_output and compose_final_output
+        # so we exec all_reduce in specified group(dp group)
+        torch.distributed.all_reduce(max_response_length, op=torch.distributed.ReduceOp.MAX, group=group)
         max_len = int(max_response_length)
         
         # right pad

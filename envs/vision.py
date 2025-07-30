@@ -11,6 +11,7 @@ class VisionEnv(MMEnv):
     def __init__(self, config, centralized_actor=None):
         super().__init__(config, centralized_actor)
         self.use_verify_tool = False
+        
 
     def get_step_reward(self, responses, format_score=0.1):
         step_reward = []

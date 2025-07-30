@@ -3,10 +3,13 @@ import json
 import traceback
 from typing import List, Union
 from abc import ABC, abstractmethod
-
+from PIL import Image
 from envs.storage.manager.storage_manager import create_config_storage_manager
 from envs.utils.util import ToolServiceError, DocParserError
-
+import json
+import io
+import base64
+import binascii
 
 class ToolManager(ABC):
     def __init__(self, verl_config) -> None:
@@ -17,6 +20,8 @@ class ToolManager(ABC):
 
     def build_storage_manager(self, verl_config):
         self.storage_manager = create_config_storage_manager(verl_config)
+        # jjw
+        self.storage_manager = None
 
     def get_tool(self, name_or_short_name: str):
         """通过名称或简写获取工具
@@ -49,6 +54,7 @@ class ToolManager(ABC):
           Returns:
               The output of tools.
           """
+        # breakpoint()
         if tool_name not in self.tool_map:
             return f'Tool {tool_name} does not exists.'
         tool = self.get_tool(tool_name)
@@ -61,6 +67,7 @@ class ToolManager(ABC):
                 return tool_result
             else:
                 tool_result = tool.call(tool_args, **kwargs)
+                # breakpoint()
                 
 
             if self.storage_manager is not None:
@@ -77,7 +84,10 @@ class ToolManager(ABC):
                             f'Traceback:\n{traceback_info}'
             return error_message
 
-        if isinstance(tool_result, str):
+        if self.is_base64(tool_result):
+            print("tool_result is base64")
+            return self.base64_to_pil(tool_result)
+        elif isinstance(tool_result, str):
             return tool_result
         else:
             return json.dumps(tool_result, ensure_ascii=False, indent=4)
@@ -85,3 +95,20 @@ class ToolManager(ABC):
     @abstractmethod
     def execute_actions(self, responses: List[str]):
         raise NotImplementedError
+    
+    def pil_to_base64(self, image):
+        img_buffer = io.BytesIO()
+        image.save(img_buffer, format='PNG')
+        img_base64 = base64.b64encode(img_buffer.getvalue()).decode('utf-8')
+        return img_base64
+    
+    def base64_to_pil(self, base64_str):
+        img_data = base64.b64decode(base64_str)
+        image = Image.open(io.BytesIO(img_data))
+        return image
+   
+
+    def is_base64(self, s):
+        head = base64.b64decode(s[:100], validate=True)
+        # 检查常见图片文件头
+        return head.startswith((b'\xff\xd8\xff', b'\x89PNG\r\n\x1a\n', b'GIF87a', b'GIF89a', b'BM'))
