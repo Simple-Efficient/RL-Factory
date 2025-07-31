@@ -42,6 +42,9 @@ python3 -m verl.trainer.main_ppo\
     actor_rollout_ref.rollout.tensor_model_parallel_size=${TP}\
     actor_rollout_ref.rollout.max_num_batched_tokens=32768\
     actor_rollout_ref.rollout.name=vllm\
+    actor_rollout_ref.rollout.enforce_eager=True\
+    actor_rollout_ref.rollout.trust_remote_code=True\
+    actor_rollout_ref.rollout.enable_prefix_caching=False\
     actor_rollout_ref.rollout.top_p=0.999\
     actor_rollout_ref.rollout.top_k=-1\
     actor_rollout_ref.rollout.val_kwargs.top_p=0.7\

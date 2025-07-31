@@ -1,4 +1,3 @@
-# image_server.py
 from PIL import Image
 from mcp.server.fastmcp import FastMCP, Context
 from mcp.server.fastmcp.tools.base import Tool
@@ -47,37 +46,24 @@ def mcp_tool_with_hidden_params(hidden_params: List[str] = None, **kwargs):
     return decorator
 
 
-# @mcp.tool()
-# def rotate(degree:int) -> str:
-#     """通过指定的角度旋转图像
-
-#     Args:
-#         degree (int): 旋转角度 (正数表示顺时针，负数表示逆时针)
-
-#     Returns:
-#         str: 旋转后图像的 Base64 编码字符串
-#     """
-#     return "Hi"
-
-
 @mcp_tool_with_hidden_params(hidden_params=["img_base64"])
 def rotate(degree: int, img_base64: str) -> str:
-    """通过指定的角度旋转图像
+    """Rotate the image by a specified angle.
 
     Args:
-        degree (int): 旋转角度 (正数表示顺时针，负数表示逆时针)
+        degree (int): The angle of rotation (positive for clockwise, negative for counter-clockwise).
 
     Returns:
-        str: 旋转后图像的 Base64 编码字符串
+        str: The Base64 encoded string of the rotated image.
     """
-    print("================= 正在调用 image_rotate 工具 ==================")
-    print(f"接收到的参数: degree={degree}, img_base64长度={len(img_base64) if img_base64 else 0}")
+    print("================= Calling image_rotate tool ==================")
+    print(f"Received parameters: degree={degree}, img_base64 length={len(img_base64) if img_base64 else 0}")
 
     if img_base64 is None:
-        return "⚠️ 错误: 缺少图像数据"
+        return "Error: Missing image data"
 
     if degree is None:
-        return "⚠️ 错误: 缺少 degree 参数"
+        return "Error: Missing degree parameter"
 
     try:
         img_data = base64.b64decode(img_base64)
@@ -92,9 +78,10 @@ def rotate(degree: int, img_base64: str) -> str:
         return img_base64_output
 
     except binascii.Error:
-        return "⚠️ 错误: 无效的 base64 图像数据"
+        return "Error: Invalid base64 image data"
     except Exception as e:
-        return f"⚠️ 图像旋转失败: {str(e)}"
+        return f"Image rotation failed: {str(e)}"
+
 
 if __name__ == "__main__":
     print("\n启动 MCP 图像旋转服务...")

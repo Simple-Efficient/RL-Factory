@@ -54,7 +54,6 @@ class ToolManager(ABC):
           Returns:
               The output of tools.
           """
-        # breakpoint()
         if tool_name not in self.tool_map:
             return f'Tool {tool_name} does not exists.'
         tool = self.get_tool(tool_name)
@@ -67,8 +66,6 @@ class ToolManager(ABC):
                 return tool_result
             else:
                 tool_result = tool.call(tool_args, **kwargs)
-                # breakpoint()
-                
 
             if self.storage_manager is not None:
                 asyncio.get_event_loop().run_until_complete(self.storage_manager.set(tool_name, tool_args, tool_result, ttl=30))

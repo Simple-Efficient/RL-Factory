@@ -151,8 +151,6 @@ class MMEnv(ABC):
                 )
                 temp_done, temp_valid_action, temp_is_tool, temp_image_data, temp_raw_prompt = False, 0, 0, None, temp_next_obs
             elif action == 'actions':
-                # mm_output, image_result = (True, tool_result[1]) if isinstance(tool_result, Tuple) else (False, None) 
-                # breakpoint()
                 temp_next_obs = self.tool_manager.get_prompt(
                     input_data=tool_result[0],
                     tokenizer=tokenizer,
@@ -160,8 +158,7 @@ class MMEnv(ABC):
                     add_generation_prompt=True
                 )
                 temp_raw_prompt = deepcopy(temp_next_obs)
-                if mm_output and "<|image_pad|>" not in temp_next_obs:
-                    breakpoint()
+                assert mm_output and "<|image_pad|>" in temp_next_obs
                 temp_multi_modal_data, temp_image_data, temp_next_obs = self._mm_process(mm_output, image_result, temp_next_obs, processor)
                 temp_done, temp_valid_action, temp_is_tool, temp_valid_tool = False, 0, 1, 1 if mm_output else 0
             else:
@@ -177,9 +174,7 @@ class MMEnv(ABC):
             raw_prompt.append(temp_raw_prompt)
 
         print(f"image valid tool execute is {sum(valid_tool)} and overall batch size is  {len(dones)}",file=sys.stderr, flush=True)
-        # breakpoint()
         assert sum(valid_tool) == sum(1 for item in new_image if isinstance(item, Image.Image))
-        
         return next_obs, dones, valid_action, is_tool, new_image, raw_prompt, multi_modal_data, valid_tool
     
 

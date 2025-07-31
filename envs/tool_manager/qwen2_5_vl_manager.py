@@ -151,20 +151,16 @@ class Qwen25VLManager(ToolManager):
                 if type(args) is dict:
                     try:
                         # 使用asyncio.to_thread包装self._call_tool以保持异步特性
-                        # breakpoint()
                         image_result = await asyncio.to_thread(
                             self._call_tool, 
                             tool["name"], json.dumps(args, ensure_ascii=False, indent=4)
                         )
-                        # breakpoint()
                         assert isinstance(image_result,  Image.Image), f"tool_result is not a PIL.Image.Image instance, got {type(image_result)}"
                         text_result = [
                             {"type": "text", "text": f"Execute the tool {tool['name']} successed. The args are: {original_args}. The image result is: "},
                             {"type": "image"}
                         ]
                         return (text_result, image_result)
-                        
-                        
 
                     except Exception as e:
                         result = (f"Execute the tool {tool['name']} failed. The original args are: {args}. Error message: {str(e)}", None)                        
@@ -188,57 +184,12 @@ class Qwen25VLManager(ToolManager):
             # 'tools' is the list of the 'Tool' instances
             tasks = [execute_single_tool(temp_tool, image_data[-1]) for temp_tool in tools]
             tool_results = await asyncio.gather(*tasks)
-            # breakpoint()
             results = [({'role': 'tool', 'content': temp_tool_result[0]}, temp_tool_result[1]) for temp_tool_result in tool_results]
         else:
             raise ValueError('Unexpected action: {}'.format(action))
 
         return results
     
-
-
-    
-    # def _call_tool(self, tool_name: str, image_data: Image.Image = None, tool_args: Union[str, dict] = '{}', **kwargs) -> Union[str, List[ContentItem]]:
-    #     """The interface of calling tools for the agent.
-
-    #     Args:
-    #         tool_name: The name of one tool.
-    #         image_data: Image data for the tool.
-
-    #     Returns:
-    #         The output of tools.
-    #     """
-    #     if tool_name not in self.tool_map:
-    #         return f'Tool {tool_name} does not exists.'
-    #     tool = self.get_tool(tool_name)
-    #     para = "{\"degree\":14}"
-    #     try:
-    #         tool_result = tool.call(para)
-    #         breakpoint()
-    #     # try:
-    #     #     tool_args = json.loads(tool_args)
-    #     #     tool_args["img_base64"] = self.pil_to_base64(image_data)
-    #     #     tool_args_tmp = json.dumps(tool_args, ensure_ascii=False, indent=4)
-    #     #     tool_result = tool.call()
-    #     #     breakpoint()
-    #     except (ToolServiceError, DocParserError) as ex:
-    #         raise ex
-    #     except Exception as ex:
-    #         exception_type = type(ex).__name__
-    #         exception_message = str(ex)
-    #         traceback_info = ''.join(traceback.format_tb(ex.__traceback__))
-    #         error_message = f'An error occurred when calling tool `{tool_name}`:\n' \
-    #                         f'{exception_type}: {exception_message}\n' \
-    #                         f'Traceback:\n{traceback_info}'
-    #         return error_message
-    #     breakpoint()
-
-    #     if self.is_base64(tool_result):
-    #         return self.base64_to_pil(tool_result)
-    #     elif isinstance(tool_result, str):
-    #         return tool_result
-    #     else:
-    #         return json.dumps(tool_result, ensure_ascii=False, indent=4)
 
     def _init_tool(self, tool: Union[str, BaseTool]):
         if isinstance(tool, BaseTool):

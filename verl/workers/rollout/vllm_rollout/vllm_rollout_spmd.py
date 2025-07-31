@@ -193,14 +193,13 @@ class vLLMRollout(BaseRollout):
         engine_kwargs = {key: val for key, val in engine_kwargs.items() if val is not None}
         if config.get("limit_images", None):  # support for multi-image data
             engine_kwargs["limit_mm_per_prompt"] = {"image": config.get("limit_images")}
-        # breakpoint()
         self.inference_engine = LLM(
             model=model_path,
             enable_sleep_mode=True,
             tensor_parallel_size=tensor_parallel_size,
             distributed_executor_backend="external_launcher",
             dtype=config.dtype,
-            enforce_eager=True,
+            enforce_eager=config.enforce_eager,
             gpu_memory_utilization=config.gpu_memory_utilization,
             disable_custom_all_reduce=True,
             disable_mm_preprocessor_cache=True,
@@ -210,13 +209,12 @@ class vLLMRollout(BaseRollout):
             disable_log_stats=config.disable_log_stats,
             max_num_batched_tokens=max_num_batched_tokens,
             enable_chunked_prefill=config.enable_chunked_prefill,
-            enable_prefix_caching=False,
-            trust_remote_code=True,
+            enable_prefix_caching=config.enable_prefix_caching,
+            trust_remote_code=trust_remote_code,
             seed=config.get("seed", 0),
             **lora_kwargs,
             **engine_kwargs,
         )
-        # breakpoint()
 
         # Offload vllm model to reduce peak memory usage
         self.inference_engine.sleep(level=1)
@@ -266,7 +264,6 @@ class vLLMRollout(BaseRollout):
     @GPUMemoryLogger(role="vllm rollout spmd", logger=logger)
     @torch.no_grad()
     def generate_sequences(self, prompts: DataProto, tokenizer=None, step=0, **kwargs) -> DataProto:
-        # breakpoint()
         assert tokenizer is not None
         print(f'vllm rollout: You are in step:{step}')
         
@@ -305,7 +302,6 @@ class vLLMRollout(BaseRollout):
                 vllm_inputs.append({"prompt_token_ids": raw_prompt_ids, "multi_modal_data": multi_modal_data})
         else:
             vllm_inputs = [{"prompt_token_ids": raw_prompt_ids} for raw_prompt_ids in non_tensor_batch.get("raw_prompt_ids")]
-        # breakpoint()
         # ensure the type of `prompt_token_ids` passed to vllm is list[int]
         # https://github.com/volcengine/verl/pull/772
         for input_data in vllm_inputs:
@@ -318,7 +314,6 @@ class vLLMRollout(BaseRollout):
                 input_data["prompt_token_ids"] = input_data["prompt_token_ids"].tolist()
             elif not isinstance(input_data["prompt_token_ids"], list):
                 raise TypeError(f"prompt_token_ids must be a list or numpy array, got {type(input_data['prompt_token_ids'])}")
-        # breakpoint()
         do_sample = prompts.meta_info.get("do_sample", True)
         is_validate = prompts.meta_info.get("validate", False)
         if not do_sample:
@@ -346,16 +341,8 @@ class vLLMRollout(BaseRollout):
                 lora_int_id = lora_int_ids[0]
                 lora_requests = [LoRARequest(lora_name=f"{lora_int_id}", lora_int_id=lora_int_id, lora_path="/simon-stub-path")] * batch_size
         # users can customize different sampling_params at different run
-        # breakpoint()
         with self.update_sampling_params(**kwargs):
-
-            # breakpoint()
-            # try:
             outputs = self.inference_engine.generate(prompts=vllm_inputs,sampling_params=self.sampling_params,lora_request=lora_requests,use_tqdm=False)
-            # except:
-            #     breakpoint()
-
-            # breakpoint()
             # TODO(sgm): disable logprob when recompute_log_prob is enable
             # if n = 1: (bs, response_length) ; if n > 1: (bs * n, response_length)
 
@@ -369,18 +356,14 @@ class vLLMRollout(BaseRollout):
                     for i, logprob in enumerate(output.outputs[sample_id].logprobs):
                         curr_log_prob.append(logprob[response_ids[i]].logprob)
                     rollout_log_probs.append(curr_log_prob)
-            # breakpoint()
-            for raw, res in zip(non_tensor_batch.get("raw_prompt_ids"), response):
-                prompt = tokenizer.decode(raw)
-                res_tmp = tokenizer.decode(res)
-                print(f"======= [VLLM DEBUG] [STEP [{step}]][Prompt]: {prompt}",file=sys.stderr,flush=True)
-                print(f"======= [VLLM DEBUG] [STEP [{step}]][Response]: {res_tmp}",file=sys.stderr,flush=True)
-                # sleep(0.1)
-            # breakpoint()
+            # for raw, res in zip(non_tensor_batch.get("raw_prompt_ids"), response):
+            #     prompt = tokenizer.decode(raw)
+            #     res_tmp = tokenizer.decode(res)
+            #     print(f"======= [VLLM DEBUG] [STEP [{step}]][Prompt]: {prompt}",file=sys.stderr,flush=True)
+            #     print(f"======= [VLLM DEBUG] [STEP [{step}]][Response]: {res_tmp}",file=sys.stderr,flush=True)
             response = pad_2d_list_to_length(response, self.pad_token_id, max_length=self.config.response_length).to(idx.device)
             rollout_log_probs = pad_2d_list_to_length(rollout_log_probs, -1, max_length=self.config.response_length).to(idx.device)
             rollout_log_probs = rollout_log_probs.to(torch.float32)
-            # breakpoint()
             if self.sampling_params.n > 1 and do_sample:
                 idx = _repeat_interleave(idx, self.sampling_params.n)
                 attention_mask = _repeat_interleave(attention_mask, self.sampling_params.n)
@@ -391,13 +374,10 @@ class vLLMRollout(BaseRollout):
                     non_tensor_batch["tools_kwargs"] = _repeat_interleave(non_tensor_batch["tools_kwargs"], self.sampling_params.n)
                 if "multi_modal_data" in non_tensor_batch.keys():
                     non_tensor_batch["multi_modal_data"] = _repeat_interleave(non_tensor_batch["multi_modal_data"], self.sampling_params.n)
-                    # breakpoint()
                     non_tensor_batch["multi_modal_inputs"] = _repeat_interleave(non_tensor_batch["multi_modal_inputs"], self.sampling_params.n)
                 if "raw_prompt_ids" in non_tensor_batch.keys():
                     non_tensor_batch["raw_prompt_ids"] = _repeat_interleave(non_tensor_batch["raw_prompt_ids"], self.sampling_params.n)                                     
-            # breakpoint()
             seq = torch.cat([idx, response], dim=-1)
-            # breakpoint()
 
         response_length = response.size(1)
         delta_position_id = torch.arange(1, response_length + 1, device=position_ids.device)

@@ -149,7 +149,6 @@ class MCPManager:
             raise e
 
     async def init_config_async(self, config: Dict):
-        # breakpoint()
         tools: list = []
         mcp_servers = config['mcpServers']
         for server_name in mcp_servers:
@@ -196,8 +195,6 @@ class MCPManager:
                     'required': parameters['required']
                 }
                 register_name = server_name + '-' + tool.name
-                if config.get('name_modify', False):
-                    register_name = self.modify(register_name)
                 agent_tool = self.create_tool_class(register_name=register_name,
                                                     register_client_id=client_id,
                                                     tool_name=tool.name,
@@ -275,13 +272,13 @@ class MCPManager:
             parameters = tool_parameters
             client_id = register_client_id
             _manager = manager_instance  # 在类中保存manager实例的引用
-            def call(self, params: Union[str, dict], **kwargs) -> str:
+            async def call(self, params: Union[str, dict], **kwargs) -> str:
                 tool_args = json.loads(params)
                 # 使用保存的manager实例而不是获取新的单例
                 client = self._manager.clients[self.client_id]
-                future = asyncio.run_coroutine_threadsafe(client.execute_function(tool_name, tool_args), self._manager.loop)
+                # future = asyncio.run_coroutine_threadsafe(client.execute_function(tool_name, tool_args), self._manager.loop)
                 try:
-                    result = future.result()
+                    result = await client.execute_function(tool_name, tool_args)
                     return result
                 except Exception as e:
                     logger.info(f'Failed in executing MCP tool: {e}')
