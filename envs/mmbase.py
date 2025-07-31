@@ -116,11 +116,9 @@ class MMEnv(ABC):
         temp_multi_modal_data = {"pixel_values": mm_data["pixel_values"], "image_grid_thw": mm_data["image_grid_thw"]}
         temp_image_data = image_result
         temp_next_obs = self._replace_all_image_pads(temp_next_obs, mm_data["image_grid_thw"][0].prod() // (processor.image_processor.merge_size**2),processor)
-        # breakpoint()
         return temp_multi_modal_data, temp_image_data, temp_next_obs
     
     def step(self, responses, processor, image_data: List[List[Image.Image]]):
-        # breakpoint()
         tokenizer = processor.tokenizer
         print("start to the env step", file=sys.stderr, flush=True)
         cur_actions, tool_results = self.tool_manager.execute_actions(responses=responses, image_data=image_data)
@@ -131,11 +129,7 @@ class MMEnv(ABC):
         
         for action, tool_result in zip(cur_actions, tool_results):
             tool_result = tool_result[0]
-            try:
-                image_result = tool_result[1]
-            except:
-                image_result = None
-                breakpoint()
+            image_result = tool_result[1]
             mm_output = True if image_result is not None else False
             temp_valid_tool = 0
             temp_multi_modal_data = None
@@ -158,8 +152,8 @@ class MMEnv(ABC):
                     add_generation_prompt=True
                 )
                 temp_raw_prompt = deepcopy(temp_next_obs)
-                breakpoint()
-                assert mm_output and "<|image_pad|>" in temp_next_obs
+                if mm_output and "<|image_pad|>" not in temp_next_obs:
+                    breakpoint()
                 temp_multi_modal_data, temp_image_data, temp_next_obs = self._mm_process(mm_output, image_result, temp_next_obs, processor)
                 temp_done, temp_valid_action, temp_is_tool, temp_valid_tool = False, 0, 1, 1 if mm_output else 0
             else:
