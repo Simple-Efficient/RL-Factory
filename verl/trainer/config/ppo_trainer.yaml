@@ -380,6 +380,10 @@ actor_rollout_ref:
     # disable logging statistics
     disable_log_stats: True
 
+    trust_remote_code: True
+
+    enable_prefix_caching: True
+
     # may get higher throughput when set to True. When activated, Please increase max_num_batched_tokens or decrease max_model_len.
     enable_chunked_prefill: True
 

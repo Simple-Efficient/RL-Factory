@@ -158,6 +158,7 @@ class MMEnv(ABC):
                     add_generation_prompt=True
                 )
                 temp_raw_prompt = deepcopy(temp_next_obs)
+                breakpoint()
                 assert mm_output and "<|image_pad|>" in temp_next_obs
                 temp_multi_modal_data, temp_image_data, temp_next_obs = self._mm_process(mm_output, image_result, temp_next_obs, processor)
                 temp_done, temp_valid_action, temp_is_tool, temp_valid_tool = False, 0, 1, 1 if mm_output else 0

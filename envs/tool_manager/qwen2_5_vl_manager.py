@@ -163,7 +163,7 @@ class Qwen25VLManager(ToolManager):
                         return (text_result, image_result)
 
                     except Exception as e:
-                        result = (f"Execute the tool {tool['name']} failed. The original args are: {args}. Error message: {str(e)}", None)                        
+                        result = (f"Execute the tool {tool['name']} failed. The original args are: {original_args}. Error message: {str(e)}", None)                        
             else:
                 result = (f"Failed to find the tool {tool['name']} in the tool map.", None)
                 
