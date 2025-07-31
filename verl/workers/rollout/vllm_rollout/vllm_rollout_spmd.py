@@ -263,8 +263,7 @@ class vLLMRollout(BaseRollout):
 
     @GPUMemoryLogger(role="vllm rollout spmd", logger=logger)
     @torch.no_grad()
-    def generate_sequences(self, prompts: DataProto, tokenizer=None, step=0, **kwargs) -> DataProto:
-        assert tokenizer is not None
+    def generate_sequences(self, prompts: DataProto, step=0, **kwargs) -> DataProto:
         print(f'vllm rollout: You are in step:{step}')
         
         # rebuild vllm cache engine
