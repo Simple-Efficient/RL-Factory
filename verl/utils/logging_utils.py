@@ -33,3 +33,5 @@ def log_to_file(string):
     if os.path.isdir("logs"):
         with open(f"logs/log_{torch.distributed.get_rank()}", "a+") as f:
             f.write(string + "\n")
+
+

@@ -133,25 +133,3 @@
 | **RLFactory-Qwen3-4B-GRPO** | **0.486** | **5h** | A100 * 8 | 
 
 </p>
-
-
-## 开发者信息
-- **核心贡献团队**：美团AI搜索团队
-- **微信群二维码**：
-xxx
-
-Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
-
-<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
-<table>
-  <tr>
-    <td align="center"><a href="https://github.com/alice123"><img src="https://github.com/alice123.png" width="60px;" alt=""/><br /><sub><b>Alice</b></sub></a><br /><a href="#" title="Code">💻</a></td>
-    <td align="center"><a href="https://github.com/bob456"><img src="https://github.com/bob456.png" width="60px;" alt=""/><br /><sub><b>Bob</b></sub></a><br /><a href="#" title="Code">💻</a></td>
-    <!-- 更多贡献者 -->
-  </tr>
-</table>
-<!-- ALL-CONTRIBUTORS-LIST:END -->
-
-This project follows the [all-contributors](https://allcontributors.org/) specification. Contributions of any kind are welcome!
-
----

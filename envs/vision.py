@@ -3,6 +3,7 @@ import json
 import string
 import torch
 import sys
+
 from typing import List
 from PIL import Image
 from .mmbase import MMEnv
@@ -12,6 +13,7 @@ class VisionEnv(MMEnv):
         super().__init__(config, centralized_actor)
         self.use_verify_tool = False
         
+
 
     def get_step_reward(self, responses, format_score=0.1):
         step_reward = []

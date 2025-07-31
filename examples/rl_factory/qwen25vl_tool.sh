@@ -5,6 +5,7 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 export OMP_NUM_THREADS=1
 export HYDRA_FULL_ERROR=1
 export RAY_DEDUP_LOGS=0
+
 export RAY_DEBUG=legacy
 MODEL_PATH="/mnt/dolphinfs/hdd_pool/docker/share/jjw/visual_tool/Models/Qwen2.5-VL-3B-Instruct"
 DATE=$(date +"%Y-%m-%d-%H:%M:%S")
@@ -75,3 +76,4 @@ python3 -m verl.trainer.main_ppo\
     trainer.save_freq=50\
     trainer.test_freq=3\
     trainer.total_epochs=10 2>&1 | tee ./${DATE}_grpo.log
+

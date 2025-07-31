@@ -13,7 +13,10 @@ class ToolManager(ABC):
         self.verl_config = verl_config
         self.tool_map = {}
         self._build_tools()
-        self.build_storage_manager(self.verl_config)
+        if self.verl_config.get("use_storage_manager", False):
+            self.build_storage_manager(self.verl_config)
+        else:
+            self.storage_manager = None
 
     def build_storage_manager(self, verl_config):
         self.storage_manager = create_config_storage_manager(verl_config)
@@ -75,6 +78,7 @@ class ToolManager(ABC):
             error_message = f'An error occurred when calling tool `{tool_name}`:\n' \
                             f'{exception_type}: {exception_message}\n' \
                             f'Traceback:\n{traceback_info}'
+            print(f"error_message: {error_message}")
             return error_message
 
         if isinstance(tool_result, str):

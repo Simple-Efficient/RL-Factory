@@ -8,7 +8,10 @@ import base64
 from PIL import Image
 from ast import literal_eval
 from omegaconf import OmegaConf
+
 from envs.tool_manager.mm_base_manager import ToolManager
+
+
 from envs.utils.mcp_manager import MCPManager
 from typing import Union, List, Tuple, Optional, Any, Dict
 from envs.utils.util import ToolServiceError, DocParserError
@@ -18,6 +21,7 @@ from qwen_agent.llm.schema import ASSISTANT, SYSTEM, USER, FUNCTION, ContentItem
 import json
 import io
 import base64
+
 from copy import deepcopy
 from envs.storage.manager.storage_manager import create_config_storage_manager
 from envs.utils.util import ToolServiceError, DocParserError
@@ -31,6 +35,7 @@ def print_rank_0(message):
     # 检查分布式环境是否已初始化，并且当前 rank 是否为 0
     if dist.is_available() and dist.is_initialized() and dist.get_rank() == 0:
         print(message, file=sys.stderr, flush=True)
+
 
 def parse_mcp_tools_config(file_path):
     try:
@@ -50,6 +55,7 @@ class Qwen25VLManager(ToolManager):
             verl_config = OmegaConf.to_container(verl_config)
         super().__init__(verl_config)
         self.verl_config = verl_config
+
         self.generate_cfg = {
             'fncall_prompt_type': 'nous',
             'function_choice': 'auto',  # 注释掉这行
@@ -57,6 +63,7 @@ class Qwen25VLManager(ToolManager):
             'lang': 'en',
             'max_input_tokens': 10000
         }
+
         self.tokenizer = None
         self.processor = None
 
@@ -73,6 +80,7 @@ class Qwen25VLManager(ToolManager):
                 chat_template_from_file = f.read()
             tokenizer.chat_template = chat_template_from_file
         return tokenizer
+
 
 
     def get_tool(self, name_or_short_name: str):
@@ -169,12 +177,14 @@ class Qwen25VLManager(ToolManager):
                 
             if isinstance(result, str):
                 return ([{"type": "text", "text": result}], None)
+
             else:
                 return result
 
         
         if action == 'answer':
             # 'tools' is a str (the answer)
+
             results = [({'role': 'assistant', 'content': tools}, None)]
         elif action == 'error':
             # 'error' only occurs when there is no 'actions' tag or there is no 'action' tag after extraction
@@ -184,7 +194,9 @@ class Qwen25VLManager(ToolManager):
             # 'tools' is the list of the 'Tool' instances
             tasks = [execute_single_tool(temp_tool, image_data[-1]) for temp_tool in tools]
             tool_results = await asyncio.gather(*tasks)
+
             results = [({'role': 'tool', 'content': temp_tool_result[0]}, temp_tool_result[1]) for temp_tool_result in tool_results]
+
         else:
             raise ValueError('Unexpected action: {}'.format(action))
 
@@ -318,11 +330,13 @@ class Qwen25VLManager(ToolManager):
         return parsed_tools
 
     
+
     def get_prompt(self, input_data, tokenizer, mode='initial', add_generation_prompt=True):
         if self.tokenizer is None:
             self.tokenizer = self._load_custom_chat_template(tokenizer)
         tokenizer = self.tokenizer
         assert mode in ['initial', 'tool_call', 'assistant_response'], 'Invalid mode: {}'.format(mode)
+
         base_chat = [
             {'role': SYSTEM, 'content': 'base'},
             {'role': USER, 'content': 'base'},

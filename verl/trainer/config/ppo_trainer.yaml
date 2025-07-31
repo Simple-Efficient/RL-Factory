@@ -480,6 +480,7 @@ actor_rollout_ref:
     parallel_sse_tool_call:
       is_enabled: True
       num_instances: 3
+    use_storage_manager: False
     cache: single
     persist: false
     eviction: lru

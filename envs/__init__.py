@@ -4,6 +4,7 @@ from .search import SearchEnv
 from .vision import VisionEnv
 from .reward_rollout_example import RewardRolloutEnv
 
+
 __all__ = ['BaseEnv', 'SearchEnv', 'RewardRolloutEnv', 'VisionEnv', 'MMEnv']
 
 TOOL_ENV_REGISTRY = {

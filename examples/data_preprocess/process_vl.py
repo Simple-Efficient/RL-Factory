@@ -122,7 +122,9 @@ if __name__ == "__main__":
                     "prompt": [
                         {
                             "role": "system",
+
                             "content": ("You are a helpful assistant. ")  + instruction_following
+
                         },
                         {
                             "role": "user",
