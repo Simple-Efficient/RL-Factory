@@ -87,7 +87,7 @@ class MMEnv(ABC):
             'data_source': data_source,
             'extra_info': extra_info
         }
-    def _replace_all_image_pads(self, original_str, count):
+    def _replace_all_image_pads(self, original_str, count, processor):
         """
         将一个字符串中所有的 '<image_pad>' 替换为指定数量的 '<image_pad>'。
 
@@ -100,9 +100,9 @@ class MMEnv(ABC):
         """
         # 1. 根据数量生成替换用的字符串
         # 例如，当 count=3 时，replacement 为 "<image pad> <image pad> <image pad>"
-        replacement = ' '.join(['<image_pad>'] * count)
+        replacement = ' '.join(['<|image_pad|>'] * count)
         # 2. 使用 replace() 方法进行全局替换
-        new_str = original_str.replace('<image_pad>', replacement)
+        new_str = original_str.replace('<|image_pad|>', replacement)
         return new_str
     
     def get_step_reward(self, responses, format_score=0.1):
@@ -115,7 +115,8 @@ class MMEnv(ABC):
         mm_data = processor.image_processor(image_result, return_tensors='pt')
         temp_multi_modal_data = {"pixel_values": mm_data["pixel_values"], "image_grid_thw": mm_data["image_grid_thw"]}
         temp_image_data = image_result
-        temp_next_obs = self._replace_all_image_pads(temp_next_obs, mm_data["image_grid_thw"][0].prod() // (processor.image_processor.merge_size**2))
+        temp_next_obs = self._replace_all_image_pads(temp_next_obs, mm_data["image_grid_thw"][0].prod() // (processor.image_processor.merge_size**2),processor)
+        # breakpoint()
         return temp_multi_modal_data, temp_image_data, temp_next_obs
     
     def step(self, responses, processor, image_data: List[List[Image.Image]]):
@@ -151,7 +152,7 @@ class MMEnv(ABC):
                 temp_done, temp_valid_action, temp_is_tool, temp_image_data, temp_raw_prompt = False, 0, 0, None, temp_next_obs
             elif action == 'actions':
                 # mm_output, image_result = (True, tool_result[1]) if isinstance(tool_result, Tuple) else (False, None) 
-                breakpoint()
+                # breakpoint()
                 temp_next_obs = self.tool_manager.get_prompt(
                     input_data=tool_result[0],
                     tokenizer=tokenizer,
@@ -159,9 +160,10 @@ class MMEnv(ABC):
                     add_generation_prompt=True
                 )
                 temp_raw_prompt = deepcopy(temp_next_obs)
+                if mm_output and "<|image_pad|>" not in temp_next_obs:
+                    breakpoint()
                 temp_multi_modal_data, temp_image_data, temp_next_obs = self._mm_process(mm_output, image_result, temp_next_obs, processor)
                 temp_done, temp_valid_action, temp_is_tool, temp_valid_tool = False, 0, 1, 1 if mm_output else 0
-
             else:
                 raise ValueError('Unexpected action: {}'.format(action))
             
@@ -175,7 +177,7 @@ class MMEnv(ABC):
             raw_prompt.append(temp_raw_prompt)
 
         print(f"image valid tool execute is {sum(valid_tool)} and overall batch size is  {len(dones)}",file=sys.stderr, flush=True)
-        breakpoint()
+        # breakpoint()
         assert sum(valid_tool) == sum(1 for item in new_image if isinstance(item, Image.Image))
         
         return next_obs, dones, valid_action, is_tool, new_image, raw_prompt, multi_modal_data, valid_tool

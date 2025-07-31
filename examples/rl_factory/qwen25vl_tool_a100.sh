@@ -11,11 +11,11 @@ MODEL_PATH="/data1/jjw/model/Qwen2.5-VL-3B-Instruct"
 DATE=$(date +"%Y-%m-%d-%H:%M:%S")
 DATA="/data1/jjw/dataset/textvqav1"
 
-TP=2
+TP=4
 Multiple=2
 Val_Multiple=2
 MINI=2
-# export CUDA_VISIBLE_DEVICES="6,7"
+export CUDA_VISIBLE_DEVICES="4,5,6,7"
 python3 -m verl.trainer.main_ppo\
     algorithm.adv_estimator=grpo\
     data.train_files=$DATA/train.parquet\
@@ -68,7 +68,7 @@ python3 -m verl.trainer.main_ppo\
     trainer.logger=['console','tensorboard']\
     trainer.project_name='GRPO_Visual'\
     trainer.experiment_name="Visual_7B_${DATE}"\
-    trainer.n_gpus_per_node=2\
+    trainer.n_gpus_per_node=4\
     trainer.nnodes=1\
     trainer.val_before_train=False\
     trainer.default_local_dir="./"\

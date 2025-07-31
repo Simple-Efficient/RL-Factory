@@ -67,7 +67,10 @@ class MMToolUtils(ToolUtils):
             batch_idxs = list(range(self.batch_size))
             
             for idx in range(self.batch_size):
-                self.multi_modal_inputs[idx].append(output.non_tensor_batch["multi_modal_inputs"][idx])
+                try:
+                    self.multi_modal_inputs[idx].append(output.non_tensor_batch["multi_modal_inputs"][idx])
+                except:
+                    breakpoint()
                 prompt_token = self.init_prompt_token[idx]
                 assert isinstance(prompt_token, torch.Tensor)
                 prompt_token_list = prompt_token[prompt_token != self.pad_token_id].tolist()
@@ -103,7 +106,7 @@ class MMToolUtils(ToolUtils):
         infos_str, dones, _, _, new_image_data, raw_prompt, multi_modal_data, valid_tool = self.env_object.step(
             responses=responses_str, processor=self.processor, image_data=self.image_list
         )
-        breakpoint()
+        # breakpoint()
         for idx, batch_idx in enumerate(batch_idxs):
             if multi_modal_data[idx] is not None:
                 self.multi_modal_inputs[batch_idx].append(multi_modal_data[idx])
@@ -137,6 +140,7 @@ class MMToolUtils(ToolUtils):
             if not dones[idx]:
                 info_token_list = tokenize_infos(infos_str[idx])
                 raw_prompt_list = tokenize_infos(raw_prompt[idx])
+                # breakpoint()
                 self.loop_responses_token[batch_idx].append(info_token_list)
                 self.loop_raw_responses_token[batch_idx].append(raw_prompt_list)
                 next_sample_idx.append(batch_idx)
@@ -242,16 +246,20 @@ class MMToolUtils(ToolUtils):
         if self.processor is not None and self.processor.image_processor._processor_class== "Qwen2_5_VLProcessor":
             from verl.models.transformers.qwen2_vl import get_rope_index
             position_ids = [] 
+            # breakpoint()
             for idx, input_id in enumerate(input_ids):
-                position_id = get_rope_index(
-                        self.processor,
-                        input_ids=input_id,
-                        image_grid_thw=multi_modal_inputs[idx][0].get("image_grid_thw"),
-                        video_grid_thw=multi_modal_inputs[idx][0].get("video_grid_thw"),
-                        attention_mask=attention_mask[idx],
-                    )
-                
-                position_ids.append(position_id)
+                try:
+                    position_id = get_rope_index(
+                            self.processor,
+                            input_ids=input_id,
+                            image_grid_thw=multi_modal_inputs[idx][0].get("image_grid_thw"),
+                            video_grid_thw=multi_modal_inputs[idx][0].get("video_grid_thw"),
+                            attention_mask=attention_mask[idx],
+                        )
+                    
+                    position_ids.append(position_id)
+                except:
+                    breakpoint()
             
             # Stack the 2D position_ids into a 3D tensor
             position_ids = torch.stack(position_ids, dim=0)
