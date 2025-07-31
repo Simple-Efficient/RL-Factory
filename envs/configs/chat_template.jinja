@@ -1,0 +1,94 @@
+{% set image_count = namespace(value=0) %}
+{% set video_count = namespace(value=0) %}
+{{- '<|im_start|>system\n' }}
+{%- if messages[0]['role'] == 'system' -%}
+    {%- if messages[0]['content'] is string -%}
+        {{ messages[0]['content'] }}
+    {%- else -%}
+        {%- for content in messages[0]['content'] -%}
+            {%- if content['type'] == 'image' or 'image' in content or 'image_url' in content -%}
+                {%- set image_count.value = image_count.value + 1 -%}
+                {%- if add_vision_id -%}
+                    {{ 'Picture ' ~ image_count.value ~ ': ' }}
+                {%- endif -%}
+                {{ '<|vision_start|><|image_pad|><|vision_end|>' }}
+            {%- elif content['type'] == 'video' or 'video' in content -%}
+                {%- set video_count.value = video_count.value + 1 -%}
+                {%- if add_vision_id -%}
+                    {{ 'Video ' ~ video_count.value ~ ': ' }}
+                {%- endif -%}
+                {{ '<|vision_start|><|video_pad|><|vision_end|>' }}
+            {%- elif 'text' in content -%}
+                {{ content['text'] }}
+            {%- endif -%}
+        {%- endfor -%}
+    {%- endif -%}
+{%- else -%}
+    {{ 'You are Qwen, created by Alibaba Cloud. You are a helpful assistant.' }}
+{%- endif -%}
+{%- if tools -%}
+    {{ '\n\n# Tools\n\nYou may call one or more functions to assist with the user query.\n\nYou are provided with function signatures within <tools></tools> XML tags:\n<tools>\n' }}
+    {{- tools | map('tojson') | join('\n') -}}
+    {{ '\n</tools>\n\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n<tool_call>\n{"name": <function-name>, "arguments": <args-json-object>}\n</tool_call>' }}
+{%- endif -%}
+{{ '<|im_end|>\n' }}
+{%- for message in messages -%}
+    {# Skip the first system message as it was already rendered. #}
+    {%- if loop.first and message.role == 'system' %}{% continue %}{% endif -%}
+
+    {# Render tool messages. The logic is slightly different with other messages. #}
+    {%- if message['role'] == 'tool' -%}
+        {%- if loop.first or messages[loop.index0 - 1]['role'] != 'tool' -%}
+            {{ '<|im_start|>user' }}
+        {%- endif -%}
+        {{ '\n<tool_response>\n' }}
+    {%- else -%}
+        {{ '<|im_start|>' ~ message['role'] ~ '\n' }}
+    {%- endif -%}
+
+    {%- if message['content'] is string -%}
+        {{ message['content'] }}
+    {%- else -%}
+        {%- for content in message['content'] -%}
+            {%- if content['type'] == 'image' or 'image' in content or 'image_url' in content -%}
+                {%- set image_count.value = image_count.value + 1 -%}
+                {%- if add_vision_id -%}
+                    {{ 'Picture ' ~ image_count.value ~ ': ' }}
+                {%- endif -%}
+                {{ '<|vision_start|><|image_pad|><|vision_end|>' }}
+            {%- elif content['type'] == 'video' or 'video' in content -%}
+                {%- set video_count.value = video_count.value + 1 -%}
+                {%- if add_vision_id -%}
+                    {{ 'Video ' ~ video_count.value ~ ': ' }}
+                {%- endif -%}
+                {{ '<|vision_start|><|video_pad|><|vision_end|>' }}
+            {%- elif 'text' in content -%}
+                {{ content['text'] }}
+            {%- endif -%}
+        {%- endfor -%}
+    {%- endif -%}
+    {# Render tool_calls in AI messages. #}
+    {%- if message['role'] == 'assistant' and 'tool_calls' in message -%}
+        {# It will be cleaner if I can use some map function and join them with '\n' #}
+        {%- for tool_call in message['tool_calls'] -%}
+            {%- if tool_call['function'] is defined -%}
+                {%- set tool_call = tool_call['function'] -%}
+            {%- endif -%}
+            {{ '<tool_call>\n' }}{{ tool_call | tojson }}{{ '\n</tool_call>' }}
+            {%- if not loop.last -%}
+                {{ '\n' }}
+            {%- endif -%}
+        {%- endfor -%}
+    {%- endif -%}
+    {%- if message['role'] == 'tool' -%}
+        {{ '\n</tool_response>' }}
+        {%- if loop.last or messages[loop.index0 + 1]['role'] != 'tool' -%}
+            {{ '<|im_end|>\n' }}
+        {%- endif -%}
+    {%- else -%}
+        {{ '<|im_end|>\n' }}
+    {%- endif -%}
+{%- endfor -%}
+{%- if add_generation_prompt -%}
+    {{ '<|im_start|>assistant\n' }}
+{%- endif -%}

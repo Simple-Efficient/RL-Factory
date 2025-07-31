@@ -8,7 +8,10 @@ import base64
 from PIL import Image
 from ast import literal_eval
 from omegaconf import OmegaConf
-from envs.tool_manager.base_manager import ToolManager
+
+from envs.tool_manager.mm_base_manager import ToolManager
+
+
 from envs.utils.mcp_manager import MCPManager
 from typing import Union, List, Tuple, Optional, Any, Dict
 from envs.utils.util import ToolServiceError, DocParserError
@@ -18,6 +21,20 @@ from qwen_agent.llm.schema import ASSISTANT, SYSTEM, USER, FUNCTION, ContentItem
 import json
 import io
 import base64
+
+from copy import deepcopy
+from envs.storage.manager.storage_manager import create_config_storage_manager
+from envs.utils.util import ToolServiceError, DocParserError
+import torch
+import torch.distributed as dist
+
+def print_rank_0(message):
+    """
+    如果 rank 为 0，则打印消息。
+    """
+    # 检查分布式环境是否已初始化，并且当前 rank 是否为 0
+    if dist.is_available() and dist.is_initialized() and dist.get_rank() == 0:
+        print(message, file=sys.stderr, flush=True)
 
 
 def parse_mcp_tools_config(file_path):
@@ -37,7 +54,8 @@ class Qwen25VLManager(ToolManager):
         if isinstance(verl_config, dict):
             verl_config = OmegaConf.to_container(verl_config)
         super().__init__(verl_config)
-        # self.functions = []
+        self.verl_config = verl_config
+
         self.generate_cfg = {
             'fncall_prompt_type': 'nous',
             'function_choice': 'auto',  # 注释掉这行
@@ -45,6 +63,25 @@ class Qwen25VLManager(ToolManager):
             'lang': 'en',
             'max_input_tokens': 10000
         }
+
+        self.tokenizer = None
+        self.processor = None
+
+        
+    def modify(self, name):
+        length = len(name)//2
+        return name[0:length]
+    
+    def _load_custom_chat_template(self, tokenizer):
+        self.chat_template_path = self.verl_config.get('load_custom_chat_template', None)
+        if self.chat_template_path:
+            print_rank_0(f"load chat template from {self.chat_template_path}")
+            with open(self.chat_template_path, "r") as f:
+                chat_template_from_file = f.read()
+            tokenizer.chat_template = chat_template_from_file
+        return tokenizer
+
+
 
     def get_tool(self, name_or_short_name: str):
         """通过名称或简写获取工具
@@ -110,99 +147,61 @@ class Qwen25VLManager(ToolManager):
             工具执行结果的列表
         """        
         async def execute_single_tool(tool, image_data:Image.Image):
-            
             tool_instance = self.get_tool(tool["name"])
-            args = tool["args"]
+            args = tool["args"] 
             if tool_instance is not None:
                 try:
                     args = json.loads(args)
+                    original_args = deepcopy(args)
+                    args["img_base64"] = self.pil_to_base64(image_data)
                 except Exception as e:
                     pass
-
                 if type(args) is dict:
                     try:
                         # 使用asyncio.to_thread包装self._call_tool以保持异步特性
-                        imqge_result = await asyncio.to_thread(
+                        image_result = await asyncio.to_thread(
                             self._call_tool, 
-                            tool["name"], image_data, json.dumps(args, ensure_ascii=False, indent=4)
+                            tool["name"], json.dumps(args, ensure_ascii=False, indent=4)
                         )
-                        
-                        assert isinstance(imqge_result,  Image.Image), f"tool_result is not a PIL.Image.Image instance, got {type(tool_result)}"
+                        assert isinstance(image_result,  Image.Image), f"tool_result is not a PIL.Image.Image instance, got {type(image_result)}"
                         text_result = [
-                            {"type": "text", "text": f"Execute the tool {tool['name']} successed. The args are: {args}. The image result is: "},
+                            {"type": "text", "text": f"Execute the tool {tool['name']} successed. The args are: {original_args}. The image result is: "},
                             {"type": "image"}
                         ]
-                        return (text_result, imqge_result)
-                        
-                        
+                        return (text_result, image_result)
 
                     except Exception as e:
-                        result = f"Execute the tool {tool['name']} failed. The original args are: {args}. Error message: {str(e)}"                        
+                        result = (f"Execute the tool {tool['name']} failed. The original args are: {original_args}. Error message: {str(e)}", None)                        
             else:
-                result = f"Failed to find the tool {tool['name']} in the tool map."
+                result = (f"Failed to find the tool {tool['name']} in the tool map.", None)
                 
             if isinstance(result, str):
-                return [{"type": "text", "text": result}]
+                return ([{"type": "text", "text": result}], None)
+
             else:
                 return result
 
         
         if action == 'answer':
             # 'tools' is a str (the answer)
-            results = {'role': 'assistant', 'content': tools}
+
+            results = [({'role': 'assistant', 'content': tools}, None)]
         elif action == 'error':
             # 'error' only occurs when there is no 'actions' tag or there is no 'action' tag after extraction
             # ('Cannot extract the actions tag' or 'There is no action after extraction')
-            results = {'role': 'assistant', 'content': """# Extract the tools failed due to: {}""".format(tools)}
+            results = [({'role': 'assistant', 'content': """# Extract the tools failed due to: {}""".format(tools)}, None)]
         elif action == 'actions':
             # 'tools' is the list of the 'Tool' instances
             tasks = [execute_single_tool(temp_tool, image_data[-1]) for temp_tool in tools]
             tool_results = await asyncio.gather(*tasks)
-            # breakpoint()
-            results = [{'role': 'tool', 'content': temp_tool_result} for temp_tool_result in tool_results]
+
+            results = [({'role': 'tool', 'content': temp_tool_result[0]}, temp_tool_result[1]) for temp_tool_result in tool_results]
+
         else:
             raise ValueError('Unexpected action: {}'.format(action))
 
         return results
     
-    def _call_tool(self, tool_name: str, image_data: Image.Image = None, **kwargs) -> Union[str, List[ContentItem]]:
-        """The interface of calling tools for the agent.
-
-        Args:
-            tool_name: The name of one tool.
-            image_data: Image data for the tool.
-
-        Returns:
-            The output of tools.
-        """
-        if tool_name not in self.tool_map:
-            return f'Tool {tool_name} does not exists.'
-        tool = self.get_tool(tool_name)
-        # breakpoint()
-        try:
-            tool_args = json.dumps({"img_base64": self.pil_to_base64(image_data), "instruction": "top"})
-            tool_result = tool.call(tool_args)
-            # import pdb; pdb.set_trace()
-
-        except (ToolServiceError, DocParserError) as ex:
-            raise ex
-        except Exception as ex:
-            exception_type = type(ex).__name__
-            exception_message = str(ex)
-            traceback_info = ''.join(traceback.format_tb(ex.__traceback__))
-            error_message = f'An error occurred when calling tool `{tool_name}`:\n' \
-                            f'{exception_type}: {exception_message}\n' \
-                            f'Traceback:\n{traceback_info}'
-            return error_message
-
-        # 如果工具结果是PIL图像，直接返回
-        if self.is_base64(tool_result):
-            # print("tool_result is base64", file=sys.stderr,flush=True)
-            return self.base64_to_pil(tool_result)
-        elif isinstance(tool_result, str):
-            return tool_result
-        else:
-            return json.dumps(tool_result, ensure_ascii=False, indent=4)
 
     def _init_tool(self, tool: Union[str, BaseTool]):
         if isinstance(tool, BaseTool):
@@ -212,8 +211,6 @@ class Qwen25VLManager(ToolManager):
             tools = MCPManager().initConfig(tool)
             for tool in tools:
                 tool_name = tool.name
-                if "-" in tool_name:
-                    tool_name = tool_name[0:len(tool_name)//2]
                 self.tool_map[tool_name] = tool
         else:
             if isinstance(tool, dict):
@@ -232,9 +229,6 @@ class Qwen25VLManager(ToolManager):
         actions, tools = [], []
         for response in responses:
             temp_action, temp_tool_list = self.parse_response(response_content=response)
-            # temp_action: answer or tools
-            # if temp_action is 'answer', temp_tool_list is the answer
-            # else, temp_tool_list is the list of the 'Tool' instances
             actions.append(temp_action)
             tools.append(temp_tool_list)
 
@@ -336,8 +330,13 @@ class Qwen25VLManager(ToolManager):
         return parsed_tools
 
     
-    def get_prompt(self, input_data, tokenizer, processor, mode='initial', add_generation_prompt=True):
-        assert mode in ['initial', 'tool_call', 'assistant_response','multimodal_tool_call'], 'Invalid mode: {}'.format(mode)
+
+    def get_prompt(self, input_data, tokenizer, mode='initial', add_generation_prompt=True):
+        if self.tokenizer is None:
+            self.tokenizer = self._load_custom_chat_template(tokenizer)
+        tokenizer = self.tokenizer
+        assert mode in ['initial', 'tool_call', 'assistant_response'], 'Invalid mode: {}'.format(mode)
+
         base_chat = [
             {'role': SYSTEM, 'content': 'base'},
             {'role': USER, 'content': 'base'},
@@ -361,18 +360,13 @@ class Qwen25VLManager(ToolManager):
                 chat = {'role': role, 'content': input_data}
             elif type(input_data) == list:
                 chat = input_data
+            elif type(input_data) == dict:
+                chat = [input_data]
             else:
                 raise ValueError('Unexpected type of input_data {} ({})'.format(type(input_data), input_data))
             
             temp_prompt_with_chat_template = tokenizer.apply_chat_template(
                 conversation=base_chat + chat, tools=self.functions, 
-                tokenize=False, add_generation_prompt=add_generation_prompt
-            )
-            prompt_with_chat_template = temp_prompt_with_chat_template.replace(base_prompt, '')
-        elif mode == 'multimodal_tool_call':
-            chat = input_data
-            temp_prompt_with_chat_template = tokenizer.apply_chat_template(
-                conversation=base_chat + chat, tools=[func.function for func in self.tool_map.values()], 
                 tokenize=False, add_generation_prompt=add_generation_prompt
             )
             prompt_with_chat_template = temp_prompt_with_chat_template.replace(base_prompt, '')

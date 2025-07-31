@@ -67,6 +67,7 @@ from verl.utils.py_functional import convert_to_regular_types
 from verl.workers.sharding_manager.fsdp_ulysses import FSDPUlyssesShardingManager
 from verl.protocol import broadcast_data_proto
 from envs.utils.tool_utils import ToolUtils
+from envs.utils.mm_tool_utils import MMToolUtils
 from envs import TOOL_ENV_REGISTRY
 
 logger = logging.getLogger(__file__)
@@ -718,8 +719,11 @@ class ActorRolloutRefWorker(Worker):
         }
 
         prompts.meta_info.update(meta_info)
+        if self.config.env.mmtool:
+            su = MMToolUtils(self.tokenizer, processor=self.processor, meta_info=meta_info, config=self.rollout.config, env_object=self.env_object)
+        else:
+            su = ToolUtils(self.tokenizer, meta_info, self.rollout.config, env_object=self.env_object)
 
-        su = ToolUtils(self.tokenizer, meta_info, self.rollout.config, env_object=self.env_object)
 
         with self.rollout_sharding_manager:
 

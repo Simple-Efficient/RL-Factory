@@ -3,23 +3,25 @@ import json
 import traceback
 from typing import List, Union
 from abc import ABC, abstractmethod
-
+from PIL import Image
 from envs.storage.manager.storage_manager import create_config_storage_manager
 from envs.utils.util import ToolServiceError, DocParserError
-
+import json
+import io
+import base64
+import binascii
 
 class ToolManager(ABC):
     def __init__(self, verl_config) -> None:
         self.verl_config = verl_config
         self.tool_map = {}
         self._build_tools()
-        if self.verl_config.get("use_storage_manager", False):
-            self.build_storage_manager(self.verl_config)
-        else:
-            self.storage_manager = None
+        self.build_storage_manager(self.verl_config)
 
     def build_storage_manager(self, verl_config):
         self.storage_manager = create_config_storage_manager(verl_config)
+        # jjw
+        self.storage_manager = None
 
     def get_tool(self, name_or_short_name: str):
         """通过名称或简写获取工具
@@ -64,7 +66,6 @@ class ToolManager(ABC):
                 return tool_result
             else:
                 tool_result = tool.call(tool_args, **kwargs)
-                
 
             if self.storage_manager is not None:
                 asyncio.get_event_loop().run_until_complete(self.storage_manager.set(tool_name, tool_args, tool_result, ttl=30))
@@ -78,10 +79,12 @@ class ToolManager(ABC):
             error_message = f'An error occurred when calling tool `{tool_name}`:\n' \
                             f'{exception_type}: {exception_message}\n' \
                             f'Traceback:\n{traceback_info}'
-            print(f"error_message: {error_message}")
             return error_message
 
-        if isinstance(tool_result, str):
+        if self.is_base64(tool_result):
+            print("tool_result is base64")
+            return self.base64_to_pil(tool_result)
+        elif isinstance(tool_result, str):
             return tool_result
         else:
             return json.dumps(tool_result, ensure_ascii=False, indent=4)
@@ -89,3 +92,20 @@ class ToolManager(ABC):
     @abstractmethod
     def execute_actions(self, responses: List[str]):
         raise NotImplementedError
+    
+    def pil_to_base64(self, image):
+        img_buffer = io.BytesIO()
+        image.save(img_buffer, format='PNG')
+        img_base64 = base64.b64encode(img_buffer.getvalue()).decode('utf-8')
+        return img_base64
+    
+    def base64_to_pil(self, base64_str):
+        img_data = base64.b64decode(base64_str)
+        image = Image.open(io.BytesIO(img_data))
+        return image
+   
+
+    def is_base64(self, s):
+        head = base64.b64decode(s[:100], validate=True)
+        # 检查常见图片文件头
+        return head.startswith((b'\xff\xd8\xff', b'\x89PNG\r\n\x1a\n', b'GIF87a', b'GIF89a', b'BM'))

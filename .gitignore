@@ -33,7 +33,6 @@ lib64/
 parts/
 sdist/
 var/
-tmp/
 *.egg-info/
 .installed.cfg
 *.egg
@@ -128,7 +127,7 @@ log
 outputs
 tensorboard_log
 ckpt
-
+tmp
 .hopeignore
 
 # cache

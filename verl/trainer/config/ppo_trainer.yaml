@@ -380,6 +380,10 @@ actor_rollout_ref:
     # disable logging statistics
     disable_log_stats: True
 
+    trust_remote_code: True
+
+    enable_prefix_caching: True
+
     # may get higher throughput when set to True. When activated, Please increase max_num_batched_tokens or decrease max_model_len.
     enable_chunked_prefill: True
 
@@ -461,6 +465,8 @@ actor_rollout_ref:
   env:
     name: base
     model_type: null
+    load_custom_chat_template: null
+    mmtool: False
     tool_manager: null
     mcp_mode: stdio
     tool_name_selected: []  # selected tools for using when call a sse MCP server; default [] will call all tools
@@ -481,6 +487,7 @@ actor_rollout_ref:
     max_size: 1000
     persist_dir: ./cache
     local_cache: null
+
 
 # configs for the critic
 critic:

@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pprint import pprint
 from typing import Optional, Type
-
+import sys
 import numpy as np
 import ray
 import torch
@@ -618,6 +618,7 @@ class RayPPOTrainer:
             non_tensor_batch_keys_to_pop = ["raw_prompt_ids"]
             if "multi_modal_data" in test_batch.non_tensor_batch:
                 non_tensor_batch_keys_to_pop.append("multi_modal_data")
+                non_tensor_batch_keys_to_pop.append("multi_modal_inputs")
             if "raw_prompt" in test_batch.non_tensor_batch:
                 non_tensor_batch_keys_to_pop.append("raw_prompt")
             if "tools_kwargs" in test_batch.non_tensor_batch:

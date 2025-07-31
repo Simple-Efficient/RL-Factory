@@ -5,17 +5,17 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 export OMP_NUM_THREADS=1
 export HYDRA_FULL_ERROR=1
 export RAY_DEDUP_LOGS=0
-
-export RAY_DEBUG=legacy
-MODEL_PATH="/mnt/dolphinfs/hdd_pool/docker/share/jjw/visual_tool/Models/Qwen2.5-VL-3B-Instruct"
+# export RAY_DEBUG=legacy
+MODEL_PATH="/data1/jjw/model/Qwen2.5-VL-3B-Instruct"
+# MODEL_PATH="/data1/jjw/model/Qwen2.5-VL-7B-Instruct"
 DATE=$(date +"%Y-%m-%d-%H:%M:%S")
-DATA="/mnt/dolphinfs/hdd_pool/docker/share/jjw/visual_tool/724/dataset/textvqav2"
+DATA="/data1/jjw/dataset/textvqav1"
 
-TP=1
-Multiple=1
-Val_Multiple=1
-MINI=1
-export CUDA_VISIBLE_DEVICES="6,7"
+TP=4
+Multiple=2
+Val_Multiple=2
+MINI=2
+export CUDA_VISIBLE_DEVICES="4,5,6,7"
 python3 -m verl.trainer.main_ppo\
     algorithm.adv_estimator=grpo\
     data.train_files=$DATA/train.parquet\
@@ -42,6 +42,9 @@ python3 -m verl.trainer.main_ppo\
     actor_rollout_ref.rollout.tensor_model_parallel_size=${TP}\
     actor_rollout_ref.rollout.max_num_batched_tokens=32768\
     actor_rollout_ref.rollout.name=vllm\
+    actor_rollout_ref.rollout.enforce_eager=True\
+    actor_rollout_ref.rollout.trust_remote_code=True\
+    actor_rollout_ref.rollout.enable_prefix_caching=False\
     actor_rollout_ref.rollout.top_p=0.999\
     actor_rollout_ref.rollout.top_k=-1\
     actor_rollout_ref.rollout.val_kwargs.top_p=0.7\
@@ -49,7 +52,7 @@ python3 -m verl.trainer.main_ppo\
     actor_rollout_ref.rollout.val_kwargs.n=1\
     actor_rollout_ref.rollout.gpu_memory_utilization=0.7\
     actor_rollout_ref.rollout.n=2\
-    actor_rollout_ref.rollout.max_turns=3\
+    actor_rollout_ref.rollout.max_turns=2\
     actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=1\
     actor_rollout_ref.env.name=vision\
     actor_rollout_ref.env.mmtool=True\
@@ -57,7 +60,7 @@ python3 -m verl.trainer.main_ppo\
     actor_rollout_ref.env.mcp_mode=stdio\
     actor_rollout_ref.env.tool_manager=qwen2_5_vl\
     actor_rollout_ref.env.enable_thinking=False\
-    actor_rollout_ref.env.config_path=envs/configs/mcp_vision_tools.pydata\
+    actor_rollout_ref.env.config_path=/data1/jjw/RL-Factory/envs/configs/mcp_vision_tools.pydata\
     actor_rollout_ref.env.use_process_reward=False\
     reward_rollout.if_use_reward_rollout=False\
     reward_rollout.rollout.tensor_model_parallel_size=${TP}\
@@ -68,12 +71,11 @@ python3 -m verl.trainer.main_ppo\
     trainer.logger=['console','tensorboard']\
     trainer.project_name='GRPO_Visual'\
     trainer.experiment_name="Visual_7B_${DATE}"\
-    trainer.n_gpus_per_node=1\
+    trainer.n_gpus_per_node=4\
     trainer.nnodes=1\
     trainer.val_before_train=False\
     trainer.default_local_dir="./"\
     trainer.default_hdfs_dir=null\
     trainer.save_freq=50\
     trainer.test_freq=3\
-    trainer.total_epochs=10 2>&1 | tee ./${DATE}_grpo.log
-
+    trainer.total_epochs=10 2>&1 | tee /data1/jjw/logs/${DATE}_grpo.log
