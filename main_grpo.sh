@@ -1,7 +1,7 @@
 set -e -x
 
-export http_proxy=http://10.253.34.172:6666
-export https_proxy=http://10.253.34.172:6666
+# export http_proxy=http://10.253.34.172:6666
+# export https_proxy=http://10.253.34.172:6666
 export MODEL_PATH=/home/hadoop-kg-llm-ddpt/dolphinfs_hdd_hadoop-kg-llm-ddpt/chengzihao02/huggingface.co/Qwen/Qwen3-8B
 export DATA_PATH=data/Travelplanner
 export RESULT_DIR=qwen3-4b-travel-agent
