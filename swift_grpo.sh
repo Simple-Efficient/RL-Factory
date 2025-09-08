@@ -3,6 +3,7 @@
 # run bash swift_grpo.sh rollout, then run bash swift_grpo.sh train
 # 下方为用Qwen3跑R1-search的案例
 
+
 VLLM_IP=localhots
 MODEL_PATH=Qwen/Qwen3-4B
 #通过plugin和下方的--use_hf会从hf自动拉数据

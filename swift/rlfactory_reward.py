@@ -14,7 +14,6 @@ from swift.llm.infer.protocol import ChatCompletionResponse
 from swift.plugin import ORM, orms
 from swift.plugin.rm_plugin import DefaultRMPlugin
 from swift.utils import get_logger
-
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 import torch
