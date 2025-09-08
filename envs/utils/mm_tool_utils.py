@@ -103,7 +103,7 @@ class MMToolUtils(ToolUtils):
         
         # breakpoint()
         infos_str, dones, _, _, new_image_data, raw_prompt, multi_modal_data, valid_tool = self.env_object.step(
-            responses=responses_str, processor=self.processor, image_data=self.image_list
+            responses=responses_str, processor=self.processor, image_data=[self.image_list[idx] for idx in batch_idxs]
         )
         # breakpoint()
         for idx, batch_idx in enumerate(batch_idxs):
