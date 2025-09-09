@@ -217,6 +217,7 @@ class AsyncvLLMServer(AsyncServerBase):
 
         tensor_parallel_size = config.get("tensor_model_parallel_size", 1)
         max_num_batched_tokens = config.get("max_num_batched_tokens", 8192)
+        max_num_seqs = config.get("max_num_seqs", 1024)
         max_model_len = config.max_model_len if config.max_model_len else config.prompt_length + config.response_length
         self.max_model_len = int(max_model_len)
 
@@ -256,6 +257,7 @@ class AsyncvLLMServer(AsyncServerBase):
             load_format="auto",
             disable_log_stats=config.disable_log_stats,
             max_num_batched_tokens=max_num_batched_tokens,
+            max_num_seqs=max_num_seqs,
             enable_chunked_prefill=config.enable_chunked_prefill,
             enable_prefix_caching=True,
             trust_remote_code=trust_remote_code,
