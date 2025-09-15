@@ -13,10 +13,11 @@ import sys
 from copy import deepcopy
 
 
-class MMEnv(ABC): # 作为多模态env的base环境
+class MMEnv(ABC): # Serves as the base environment for multimodal environments
     def __init__(self, config, centralized_actor=None):
         tool_manager_name = config.get('tool_manager', 'qwen3')
-        # 检查是否指定工具管理器，如果没有采用自适应模式Add commentMore actions
+        # Check if a tool manager is specified
+        # If not specified, use adaptive mode
         if not tool_manager_name:
             tool_manager_name = "adaptive"
         if tool_manager_name.startswith('centralized_'):
@@ -27,7 +28,7 @@ class MMEnv(ABC): # 作为多模态env的base环境
                 centralized_actor_handle=centralized_actor
             )
         else:
-            # 分布式模式，保持原有逻辑
+            # Distributed mode, keep the original logic unchanged
             if tool_manager_name == 'adaptive':
                 model_type = config.get('model_type')
                 if 'qwen3' in model_type:

@@ -12,11 +12,12 @@ from verl.protocol import pad_dataproto_to_divisor, unpad_dataproto
 class Env(ABC):
     def __init__(self, config, centralized_actor=None):
         tool_manager_name = config.get('tool_manager')
-        # 检查是否指定工具管理器
-        # 如果没有采用自适应模式Add commentMore actions
+        # Check if a tool manager is specified
+        # If not, use adaptive mode
         if not tool_manager_name:
             tool_manager_name = "adaptive"
-        # 检查是否使用集中式工具管理器
+        # Check if using a centralized tool manager
+
         if tool_manager_name.startswith('centralized_'):
             if centralized_actor is None:
                 raise ValueError(f"使用集中式工具管理器 '{tool_manager_name}' 需要提供 centralized_actor 参数")
@@ -25,7 +26,7 @@ class Env(ABC):
                 centralized_actor_handle=centralized_actor
             )
         else:
-            # 分布式模式，保持原有逻辑
+            # Distributed mode, keep original logic unchanged
             if tool_manager_name == 'adaptive':
                 model_type = config.get('model_type')
                 if 'qwen3' in model_type:
