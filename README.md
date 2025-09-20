@@ -21,11 +21,7 @@ Current version natively supports one-click **DeepSearch** training and features
 </div>
 
 ## Release Log
-We’ll keep a fast release cycle to quickly deliver and polish the upcoming features.
-+ **Version 0.1**
-  + **Environment decouple**: define your tool-use envinroment easily (tools setup and reward function definition)
-  + **Qwen3 Model support**: quickly train your agent using Qwen3 (much better than Qwen2.5 in tool-call)
-  + **Efficient training**: 2x faster than existing frameworks for rapid model iteration (mainly through async tool-use)
+We’ll keep a fast release cycle to quickly deliver and polish the upcoming features. **If you have any features you highly hope to be supported in the future, please feel free to contact us (gjyin@outlook.com).**
 + **Version 0.2** We are looking forward to more people participating in the development and construction together, to create a great Agenetic Training community. Please feel free to contact us.
   + **WebUI**: build a WebUI for data processing, tool & environment definition, training configuration, and project management [#2](https://github.com/Simple-Efficient/RL-Factory/issues/2)
   + **More efficient training**: support the AsyncLLMEngine for more efficient rollout [#4](https://github.com/Simple-Efficient/RL-Factory/issues/4)
@@ -38,6 +34,13 @@ We’ll keep a fast release cycle to quickly deliver and polish the upcoming fea
   + **Handy evaluation**: added main_eval.sh for evaluation utility [#36](https://github.com/Simple-Efficient/RL-Factory/pull/36)
   + **Upgrade to VeRL-0.5**: Upgraded to VeRL-0.5 with maximal component decoupling [update/verl_0_5](https://github.com/Simple-Efficient/RL-Factory/tree/update/verl_0_5)
   + **Add MS-SWIFT-3.7 to RL-Factory**: Added the support of MS-SWIFT-3.7 to make it more convenient for individual developers [#95](https://github.com/Simple-Efficient/RL-Factory/pull/95)
+ 
++ **Version 0.1**
+  + **Environment decouple**: define your tool-use envinroment easily (tools setup and reward function definition)
+  + **Qwen3 Model support**: quickly train your agent using Qwen3 (much better than Qwen2.5 in tool-call)
+  + **Efficient training**: 2x faster than existing frameworks for rapid model iteration (mainly through async tool-use)
+ 
+  
 
 ## Our Framework Design
 Our goal is to enable users to focus on reward logic and tool setup for fast agentic learning with minimal code, while hardcore developers could focus on improving training efficiency and model performance. 
