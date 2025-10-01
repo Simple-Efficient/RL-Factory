@@ -135,5 +135,23 @@ We welcome all users and developers to contribute code to RLFactory. If you have
 ## Acknowledgement
 This repo benefits from [verl](https://github.com/volcengine/veRL), [Search-R1](https://github.com/PeterGriffinJin/Search-R1), [Qwen-Agent](https://github.com/QwenLM/Qwen-Agent). Thanks for their wonderful works. We will also introduce [TRL](https://github.com/huggingface/trl) in the future to further expand the applicability of our framework.
 
+## 📚 Citation
+Our technical report can be found [here](https://arxiv.org/pdf/2509.06980).
+If you find our work useful, please consider citing our work:
+```
+@misc{chai2025rlfactoryplugandplayreinforcementlearning,
+      title={RLFactory: A Plug-and-Play Reinforcement Learning Post-Training Framework for LLM Multi-Turn Tool-Use}, 
+      author={Jiajun Chai and Guojun Yin and Zekun Xu and Chuhuai Yue and Yi Jia and Siyu Xia and Xiaohan Wang and Jiwen Jiang and Xiaoguang Li and Chengqi Dong and Hang He and Wei Lin},
+      year={2025},
+      eprint={2509.06980},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2509.06980}, 
+}
+```
+If you have contributed to this project and wish to be included in our technical report, please contact me (gjyin@outlook.com) promptly.
+
+
+
 ## Star History
 [![Star History Chart](https://api.star-history.com/svg?repos=Simple-Efficient/RL-Factory&type=Date)](https://www.star-history.com/#Simple-Efficient/RL-Factory&Date)  
