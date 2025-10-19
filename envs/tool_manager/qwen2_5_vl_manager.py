@@ -135,6 +135,11 @@ class Qwen25VLManager(ToolManager):
         return self.tool_map
 
     def _build_tools(self):
+        """
+        构建工具列表
+        读取配置文件，初始化工具，并将其添加到工具映射中
+        生成工具函数列表供模型调用
+        """
         config_path = self.verl_config.config_path
         if config_path is not None:
             function_list = parse_mcp_tools_config(config_path)

@@ -131,6 +131,7 @@ class MMEnv(ABC): # Serves as the base environment for multimodal environments
         return step_reward 
     
     def _mm_process(self, mm_output, image_result, temp_next_obs, processor):
+        """处理多模态输出，生成多模态数据和更新后的观察。"""
         if not mm_output:
             return None, None, temp_next_obs
         mm_data = processor.image_processor(image_result, return_tensors='pt')
