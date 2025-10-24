@@ -1,4 +1,4 @@
-# Redis缓存服务
+# New Feature Redis缓存服务
 
 本项目使用Redis作为web search API调用的缓存服务，以减少重复API调用，降低训练成本。
 

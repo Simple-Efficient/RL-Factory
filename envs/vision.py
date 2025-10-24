@@ -8,7 +8,7 @@ from typing import List
 from PIL import Image
 from .mmbase import MMEnv
 
-class VisionEnv(MMEnv):
+class VisionEnv(MMEnv): # used for mm tool use demo
     def __init__(self, config, centralized_actor=None):
         """Initialize vision environment with configuration"""
         super().__init__(config, centralized_actor)

@@ -23,6 +23,15 @@ from verl.utils.hdfs_io import copy, makedirs
 import argparse
 
 def make_prefix(dp, template_type):
+    """根据模板类型生成前缀
+    
+    Args:
+        dp: 数据样本，包含查询和其他信息
+        template_type: 模板类型，用于选择不同的提示模板
+        
+    Returns:
+        生成的前缀字符串
+    """
     question = dp['query']
     with open('scripts/data_process/PROMPT.txt', 'r', encoding='utf-8') as f:
         prefix = f.read().replace(r'INSTRUCTION', question)

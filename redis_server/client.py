@@ -4,7 +4,6 @@
 Redis客户端使用示例
 演示如何连接和使用Redis缓存服务
 """
-
 import redis
 import json
 import hashlib
@@ -194,4 +193,5 @@ def demo_usage():
 
 
 if __name__ == "__main__":
+    # demo test
     demo_usage()

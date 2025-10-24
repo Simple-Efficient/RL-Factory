@@ -546,6 +546,20 @@ class vLLMRewardRollout(vLLMRollout):
 
         trust_remote_code = kwargs.get("trust_remote_code", False)
 
+        engine_kwargs = (
+            {}
+            if "engine_kwargs" not in config or "vllm" not in config.engine_kwargs
+            else OmegaConf.to_container(deepcopy(config.engine_kwargs.vllm))
+        )
+        # For each vLLM engine parameter,
+        # - `None` means not setting it, so we pop it, and leave it to vLLM default value
+        #    (which can vary across different vLLM versions);
+        # - Otherwise it's the desired value we want to explicitly set.
+        engine_kwargs = {key: val for key, val in engine_kwargs.items() if val is not None}
+
+        if config.get("limit_images", None):  # support for multi-image data
+            engine_kwargs["limit_mm_per_prompt"] = {"image": config.get("limit_images")}
+
         self.inference_engine = LLM(
             model=model_path,
             enable_sleep_mode=True,
@@ -555,7 +569,6 @@ class vLLMRewardRollout(vLLMRollout):
             enforce_eager=config.enforce_eager,
             gpu_memory_utilization=config.gpu_memory_utilization,
             disable_custom_all_reduce=True,
-            disable_mm_preprocessor_cache=True,
             skip_tokenizer_init=False,
             max_model_len=max_model_len,
             disable_log_stats=config.disable_log_stats,
@@ -564,6 +577,7 @@ class vLLMRewardRollout(vLLMRollout):
             enable_prefix_caching=True,
             trust_remote_code=trust_remote_code,
             seed=config.get("seed", 0),
+            **engine_kwargs,
         )
         # Offload vllm model to reduce peak memory usage
         self.inference_engine.sleep(level=1)

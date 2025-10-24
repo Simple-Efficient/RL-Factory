@@ -13,10 +13,26 @@ import sys
 from copy import deepcopy
 
 
-class MMEnv(ABC): # 作为多模态env的base环境
+class MMEnv(ABC): # Serves as the base environment for multimodal environments
+    """
+    Abstract base class for multimodal reinforcement learning environments in the RL-Factory framework.
+    
+    This class extends the basic environment functionality to support multimodal inputs,
+    particularly images, alongside text. It provides the core functionality for environment 
+    interaction, tool management, reward computation, and data processing in multimodal settings.
+    
+    Attributes:
+        tool_manager: Manages tool execution and interaction with multimodal language models
+        max_prompt_length (int): Maximum allowed length for prompts
+        use_verify_tool (bool): Flag indicating whether to use verification tools
+        use_process_reward (bool): Flag indicating whether to use process rewards
+        chat_template (str): Chat template for formatting conversations
+        processor: Processor for handling multimodal data (image/text)
+    """
     def __init__(self, config, centralized_actor=None):
         tool_manager_name = config.get('tool_manager', 'qwen3')
-        # 检查是否指定工具管理器，如果没有采用自适应模式Add commentMore actions
+        # Check if a tool manager is specified
+        # If not specified, use adaptive mode
         if not tool_manager_name:
             tool_manager_name = "adaptive"
         if tool_manager_name.startswith('centralized_'):
@@ -27,7 +43,7 @@ class MMEnv(ABC): # 作为多模态env的base环境
                 centralized_actor_handle=centralized_actor
             )
         else:
-            # 分布式模式，保持原有逻辑
+            # Distributed mode, keep the original logic unchanged
             if tool_manager_name == 'adaptive':
                 model_type = config.get('model_type')
                 if 'qwen3' in model_type:
@@ -110,10 +126,12 @@ class MMEnv(ABC): # 作为多模态env的base环境
         return new_str
     
     def get_step_reward(self, responses, format_score=0.1):
+
         step_reward = [1] * len(responses)
         return step_reward 
     
     def _mm_process(self, mm_output, image_result, temp_next_obs, processor):
+        """处理多模态输出，生成多模态数据和更新后的观察。"""
         if not mm_output:
             return None, None, temp_next_obs
         mm_data = processor.image_processor(image_result, return_tensors='pt')
@@ -123,6 +141,16 @@ class MMEnv(ABC): # 作为多模态env的base环境
         return temp_multi_modal_data, temp_image_data, temp_next_obs
     
     def step(self, responses, processor, image_data: List[List[Image.Image]]):
+        """执行环境步骤，根据模型响应和图像数据更新环境状态。
+        
+        Args:
+            responses: 模型生成的响应列表
+            processor: 模型处理器，用于处理图像数据
+            image_data: 输入的图像数据列表，每个元素为一个图像批次
+            
+        Returns:
+            包含更新后的观察、完成标志、有效操作、是否为工具调用、新图像数据、有效工具调用和原始提示的元组
+        """
         tokenizer = processor.tokenizer
         print("start to the env step", file=sys.stderr, flush=True)
         cur_actions, tool_results = self.tool_manager.execute_actions(responses=responses, image_data=image_data)
@@ -214,6 +242,7 @@ class MMEnv(ABC): # 作为多模态env的base环境
         return scores
 
     def get_prompt_for_reward(self, reward_tokenizer, data: DataProto):
+        """获取奖励模型使用的prompt"""
         reward_prompt_strs = []
         
         for i in range(len(data)):

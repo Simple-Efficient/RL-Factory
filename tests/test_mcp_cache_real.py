@@ -4,7 +4,6 @@
 MCP工具缓存功能真实测试脚本
 直接使用工具管理器测试web_search工具的缓存功能
 """
-
 import os
 import sys
 import time

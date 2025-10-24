@@ -2,7 +2,6 @@ set -e -x
 FILE="$(pwd)/verl/utils/reward_score/search.py"
 FUNCTION_NAME="compute_score"
 
-
 export MODEL_PATH='your/path/to/Qwen/Qwen3-8B'
 export REWARD_MODEL_PATH=/your/path/to/huggingface.co/Qwen/QwQ-32B
 export TEST_DATA='your/path/to/data/hotpot/test.parquet'

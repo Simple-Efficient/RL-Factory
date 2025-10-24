@@ -4,7 +4,6 @@
 Redis缓存管理器
 用于MCP工具调用和其他组件的缓存功能
 """
-
 import json
 import hashlib
 from typing import Any, Optional, Dict, Union

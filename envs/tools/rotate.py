@@ -10,7 +10,7 @@ from typing import Any, Callable, List # For type hints
 mcp = FastMCP("LocalServer")
 
 @mcp.tool()
-def rotate(degree: int, img_base64: str) -> str:
+def rotate(degree: int, img_base64: str) -> str: # Rotate tool for MM tool use demo
     """Rotate the image by a specified angle.
 
     Args:

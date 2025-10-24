@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # Redis服务启动脚本
 # 用于启动和管理Redis缓存服务
 

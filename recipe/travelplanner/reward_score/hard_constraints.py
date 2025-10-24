@@ -48,6 +48,9 @@ def extract_from_to(text: str):
     return matches.groups() if matches else (None, None)
 
 def get_total_cost(question, tested_data):
+    """
+    Calculates the total cost of a given question and tested data.
+    """
     total_cost = 0
     for i in range(min(question['days'],len(tested_data))):
         unit = tested_data[i]

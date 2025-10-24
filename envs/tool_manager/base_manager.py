@@ -9,6 +9,25 @@ from envs.utils.util import ToolServiceError, DocParserError
 
 
 class ToolManager(ABC):
+    """
+    Abstract base class for managing tools in reinforcement learning environments.
+    
+    This class provides the foundation for tool management systems that handle
+    execution of various tools by agents in RL environments. It supports tool
+    registration, storage management, and tool calling functionality.
+    
+    Attributes:
+        verl_config (dict): Configuration dictionary for the VERL framework
+        tool_map (dict): Mapping of tool names to tool instances
+        storage_manager: Optional storage manager for caching tool results
+        
+    The class handles:
+    - Tool registration and retrieval
+    - Tool name resolution (full names vs short names)
+    - Tool execution with error handling
+    - Optional caching of tool results
+    - Asynchronous storage operations
+    """
     def __init__(self, verl_config) -> None:
         self.verl_config = verl_config
         self.tool_map = {}

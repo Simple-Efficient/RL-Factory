@@ -120,6 +120,7 @@ For **future progression**, we will continue to prioritize **"easy"** and **"eff
 </p>
 
 
+
 ## How to contribute?
 We welcome all users and developers to contribute code to RLFactory. If you have any questions, encounter bugs, or would like to collaborate on development, please feel free to contact us!
 
@@ -127,12 +128,30 @@ We welcome all users and developers to contribute code to RLFactory. If you have
 2. Contact us via email at chaijiajun@meituan.com or gjyin@outlook.com.
 3. Join our WeChat group(preferred) and become a pioneer in Agent training!
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/773a834d-d0c6-4454-9c5d-3e421ca9ad05" alt="Description" style="width:200px; height:auto;"/>
+  <img src="https://github.com/user-attachments/assets/bdb76d94-eb44-4fa1-a8f0-2f904be1e6c4" alt="Description" style="width:200px; height:auto;"/>
   <img src="https://github.com/user-attachments/assets/e59f1a14-faee-4ec8-97cd-5e90ff34a43d" alt="Description" style="width:200px; height:auto;"/>
 </div>
 
 ## Acknowledgement
 This repo benefits from [verl](https://github.com/volcengine/veRL), [Search-R1](https://github.com/PeterGriffinJin/Search-R1), [Qwen-Agent](https://github.com/QwenLM/Qwen-Agent). Thanks for their wonderful works. We will also introduce [TRL](https://github.com/huggingface/trl) in the future to further expand the applicability of our framework.
+
+## 📚 Citation
+Our technical report can be found [here](https://arxiv.org/pdf/2509.06980).
+If you find our work useful, please consider citing our work:
+```
+@misc{chai2025rlfactoryplugandplayreinforcementlearning,
+      title={RLFactory: A Plug-and-Play Reinforcement Learning Post-Training Framework for LLM Multi-Turn Tool-Use}, 
+      author={Jiajun Chai and Guojun Yin and Zekun Xu and Chuhuai Yue and Yi Jia and Siyu Xia and Xiaohan Wang and Jiwen Jiang and Xiaoguang Li and Chengqi Dong and Hang He and Wei Lin},
+      year={2025},
+      eprint={2509.06980},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2509.06980}, 
+}
+```
+If you have contributed to this project and wish to be included in our technical report, please contact me (gjyin@outlook.com) promptly.
+
+
 
 ## Star History
 [![Star History Chart](https://api.star-history.com/svg?repos=Simple-Efficient/RL-Factory&type=Date)](https://www.star-history.com/#Simple-Efficient/RL-Factory&Date)  

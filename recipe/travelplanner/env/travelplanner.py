@@ -9,6 +9,25 @@ from typing import Optional, Dict
 
 # travel planning agent support
 class TravelplannerEnv(Env):
+    """
+    Travel planning environment for reinforcement learning-based travel itinerary generation.
+    
+    This environment extends the base Env class to provide specialized functionality
+    for travel planning tasks. It handles the evaluation of travel plans generated
+    by language models, including parsing structured outputs and calculating rewards
+    based on plan quality and constraint satisfaction.
+    
+    Key features:
+    - Processes travel planning responses with <answer> tags
+    - Evaluates plan quality using custom evaluation logic
+    - Calculates rewards based on format compliance and plan correctness
+    - Supports both training and validation modes
+    - Integrates with the VERL framework for RL training
+    
+    The environment expects responses in a specific format with JSON-structured
+    travel plans enclosed in <answer> tags, and evaluates these plans against
+    predefined constraints and requirements.
+    """
     def __init__(self, config, centralized_actor=None):
         super().__init__(config, centralized_actor)
         self.use_verify_tool = False
