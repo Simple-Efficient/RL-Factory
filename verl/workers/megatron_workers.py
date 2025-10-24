@@ -101,6 +101,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
         # 1, users should disable WorkerDict; 2.assign different ResourcePool to different models,
         # 3. and apply the following patch in ray==2.10, https://github.com/ray-project/ray/pull/44385
         if not torch.distributed.is_initialized():
+            print("init torch distributed, ActorRolloutRefWorker", self.config.get("nccl_timeout", 600))
             rank = int(os.environ["LOCAL_RANK"])
             torch.distributed.init_process_group(
                 backend=get_nccl_backend(),
@@ -119,6 +120,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
                 expert_model_parallel_size=self.config.actor.megatron.expert_model_parallel_size,
                 expert_tensor_parallel_size=self.config.actor.megatron.expert_tensor_parallel_size,
                 nccl_communicator_config_path=None,
+                distributed_timeout_minutes=self.config.get("nccl_timeout", 1800) // 60,
             )
 
         set_random_seed(seed=self.config.actor.megatron.seed)
@@ -175,7 +177,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
         """初始化集中式工具管理器Actor"""
         import ray
         from envs.tool_manager.centralized.centralized_qwen3_manager import CentralizedToolActor
-
+        
         # 只有rank 0的worker负责创建集中式Actor
         if self.rank == 0:
             try:
@@ -657,6 +659,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
 
             max_turns = self.rollout.config.max_turns
             tp_group, tp_rank = self.sharding_manager.get_tp_group_and_rank()
+            torch.distributed.distributed_c10d._set_pg_timeout(datetime.timedelta(seconds=self.config.get("nccl_timeout", 1800)), tp_group)
             
             for step in range(max_turns):
                 print('Loop step: {}'.format(step))
@@ -686,6 +689,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
                     broadcast_data_proto(prompts, process_group=tp_group, group_src=0)
             
             dp_group = self.sharding_manager.get_dp_group()
+            torch.distributed.distributed_c10d._set_pg_timeout(datetime.timedelta(seconds=self.config.get("nccl_timeout", 1800)), dp_group)
             if tp_rank == 0:
                 output = su.compose_final_output(step=step, group=dp_group)
             else:
@@ -874,6 +878,7 @@ class CriticWorker(MegatronWorker, DistProfilerExtension):
                 expert_model_parallel_size=self.config.megatron.expert_model_parallel_size,
                 expert_tensor_parallel_size=self.config.megatron.expert_tensor_parallel_size,
                 nccl_communicator_config_path=None,
+                distributed_timeout_minutes=self.config.get("nccl_timeout", 1800) // 60,
             )
 
         set_random_seed(seed=self.config.megatron.seed)
@@ -1134,6 +1139,7 @@ class RewardModelWorker(MegatronWorker, DistProfilerExtension):
         # 1, users should disable WorkerDict; 2.assign different ResourcePool to different models,
         # 3. and apply the following patch in ray==2.10, https://github.com/ray-project/ray/pull/44385
         if not torch.distributed.is_initialized():
+            print("init torch distributed, RewardModelWorker", self.config.get("nccl_timeout", 600))
             rank = int(os.environ["LOCAL_RANK"])
             torch.distributed.init_process_group(
                 backend=get_nccl_backend(),
@@ -1152,6 +1158,7 @@ class RewardModelWorker(MegatronWorker, DistProfilerExtension):
                 expert_model_parallel_size=self.config.megatron.expert_model_parallel_size,
                 expert_tensor_parallel_size=self.config.megatron.expert_tensor_parallel_size,
                 nccl_communicator_config_path=None,
+                distributed_timeout_minutes=self.config.get("nccl_timeout", 1800) // 60,
             )
 
         set_random_seed(seed=self.config.megatron.seed)
@@ -1317,6 +1324,7 @@ class RewardRolloutWorker(MegatronWorker, DistProfilerExtension):
             mpu.initialize_model_parallel(
                 tensor_model_parallel_size=self.config.rollout.tensor_model_parallel_size,
                 use_sharp=False,
+                distributed_timeout_minutes=self.config.get("nccl_timeout", 1800) // 60,
                 # context_parallel_size=self.config.rollout.context_parallel_size,
                 # expert_model_parallel_size=self.config.actor.megatron.expert_model_parallel_size,
                 # expert_tensor_parallel_size=self.config.actor.megatron.expert_tensor_parallel_size,
@@ -1329,6 +1337,10 @@ class RewardRolloutWorker(MegatronWorker, DistProfilerExtension):
         )
 
         set_random_seed(seed=self.config.rollout.seed)
+
+        # Initialize profiler
+        profiler_config = omega_conf_to_dataclass(config.get("profiler"))
+        DistProfilerExtension.__init__(self, DistProfiler(rank=self.rank, config=profiler_config))
 
         self.role = role
         assert self.role == 'reward_rollout'
