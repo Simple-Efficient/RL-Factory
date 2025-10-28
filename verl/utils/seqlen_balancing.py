@@ -273,11 +273,49 @@ def rearrange_micro_batches(
         List[List[int]]: index lists mapping each micro-batch back to original positions.
     """
     # this is per local micro_bsz
-    max_seq_len = batch["attention_mask"].shape[-1]
-    assert max_token_len >= max_seq_len, (
-        f"max_token_len must be greater than the sequence length. Got {max_token_len=} and {max_seq_len=}"
-    )
-    seq_len_effective: torch.Tensor = batch["attention_mask"].sum(dim=1)
+    # Handle both DataProto and TensorDict types
+    if hasattr(batch, 'batch'):
+        # DataProto object
+        attention_mask = batch.batch["attention_mask"]
+        is_dataproto = True
+    else:
+        # TensorDict object
+        attention_mask = batch["attention_mask"]
+        is_dataproto = False
+    
+    max_seq_len = attention_mask.shape[-1]
+    
+    # Handle sequences longer than max_token_len with left truncation
+    if max_seq_len > max_token_len:
+        print(f"Warning: Sequence length {max_seq_len} exceeds max_token_len {max_token_len}. Applying left truncation.")
+        
+        if is_dataproto:
+            # DataProto case
+            truncated_tensors = {}
+            for key, tensor in batch.batch.items():
+                if tensor.dim() >= 2 and tensor.shape[-1] == max_seq_len:
+                    # Left truncate: keep the rightmost max_token_len tokens
+                    truncated_tensors[key] = tensor[..., -max_token_len:]
+                else:
+                    truncated_tensors[key] = tensor
+            
+            # Create new DataProto with truncated tensors
+            from verl.protocol import DataProto
+            batch = DataProto.from_dict(tensors=truncated_tensors, non_tensors=batch.non_tensor_batch)
+        else:
+            # TensorDict case
+            for key, tensor in batch.items():
+                if tensor.dim() >= 2 and tensor.shape[-1] == max_seq_len:
+                    # Left truncate: keep the rightmost max_token_len tokens
+                    batch[key] = tensor[..., -max_token_len:]
+        
+        max_seq_len = max_token_len
+    
+    # Get seq_len_effective based on batch type
+    if is_dataproto:
+        seq_len_effective: torch.Tensor = batch.batch["attention_mask"].sum(dim=1)
+    else:
+        seq_len_effective: torch.Tensor = batch["attention_mask"].sum(dim=1)
     total_seqlen = seq_len_effective.sum().item()
     # NOTE: num_microbatches <= batch_size, so take the min of this two.
     num_micro_batches = min(len(seq_len_effective), ceildiv(total_seqlen, max_token_len))
@@ -312,7 +350,15 @@ def rearrange_micro_batches(
         curr_micro_batch = []
         for idx in partition:
             curr_micro_batch.append(batch[idx : idx + 1])
-        curr_micro_batch = torch.cat(curr_micro_batch)
+        
+        # Use appropriate concatenation method based on batch type
+        if is_dataproto:
+            # Use DataProto.concat for DataProto objects
+            from verl.protocol import DataProto
+            curr_micro_batch = DataProto.concat(curr_micro_batch)
+        else:
+            # For TensorDict objects, torch.cat works directly
+            curr_micro_batch = torch.cat(curr_micro_batch)
 
         micro_batches.append(curr_micro_batch)
 

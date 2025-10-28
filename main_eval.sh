@@ -7,7 +7,7 @@ export REWARD_MODEL_PATH=/your/path/to/huggingface.co/Qwen/QwQ-32B
 export TEST_DATA='your/path/to/data/hotpot/test.parquet'
 # export VLLM_ATTENTION_BACKEND=XFORMERS
 
-python3 -m verl.trainer.main_evaluate\
+python3 -m verl.trainer.main_evaluate --config-name=rl_factory_ppo_trainer \
     data.val_files=$TEST_DATA\
     data.val_batch_size=2048\
     data.max_prompt_length=4096\
