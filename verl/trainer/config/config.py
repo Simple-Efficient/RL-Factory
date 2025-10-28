@@ -124,3 +124,39 @@ class FSDPCriticConfig(CriticConfig):
     forward_micro_batch_size_per_gpu: int = 1
     ulysses_sequence_parallel_size: int = 1
     grad_clip: float = 1.0
+
+@dataclass
+class BaseModelConfig(BaseConfig):
+    """Base configuration for a model.
+    Contains core settings for loading and initializing a pretrained model checkpoint.
+
+    Args:
+        path (str): Path to pretrained model weights.
+        tokenizer_path (Optional[str]): Tokenizer path (defaults to actor's model path if not set).
+        override_config (dict): Hugging Face config override.
+        external_lib (Optional[str]): External model implementation (optional).
+        trust_remote_code (bool): Whether to trust remote code from Hugging Face models.
+    """
+
+    path: str = "~/models/deepseek-llm-7b-chat"
+    tokenizer_path: Optional[str] = None
+    override_config: dict[str, Any] = field(default_factory=dict)
+    external_lib: Optional[str] = None
+    trust_remote_code: bool = False
+
+@dataclass
+class CheckpointConfig(BaseConfig):
+    """Configuration for model checkpointing.
+
+    The inheritance from BaseConfig provides omegaconf.DictConfig-like interface for a dataclass config.
+
+    Args:
+        save_contents (list[str]): What to include in saved checkpoints.
+            Options: 'model', 'optimizer', 'extra', 'hf_model'.
+        load_contents (list[str]): Contents to load from checkpoint. Defaults to same as save_contents.
+        async_save (bool): Whether to save checkpoints asynchronously. Only implemented for Megatron as of now.
+    """
+
+    save_contents: list[str] = field(default_factory=lambda: ["model", "optimizer", "extra"])
+    load_contents: list[str] = field(default_factory=lambda: ["model", "optimizer", "extra"])
+    async_save: bool = False
