@@ -30,6 +30,7 @@ class BaseConfig(collections.abc.Mapping):
     This allows instances of this class to be used like dictionaries.
     """
 
+    _mutable_fields = {"extra"}
     extra: dict[str, Any] = field(default_factory=dict)
 
     def __setattr__(self, name: str, value):
