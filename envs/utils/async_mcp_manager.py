@@ -114,3 +114,7 @@ class AsyncMCPManager(SSEMCPManager):
             config=self._config,
             manager_classes=self.manager_classes
         )
+
+    async def _init_client_with_retry(self, client, server_name, server, max_retries=10):
+        """重写_init_client_with_retry方法，调用父类的方法"""
+        return await super()._init_client_with_retry(client, server_name, server, max_retries)
