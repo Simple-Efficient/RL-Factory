@@ -22,6 +22,21 @@ import uuid
 from contextlib import AsyncExitStack
 from typing import Dict, Optional, Union
 
+# Import BaseExceptionGroup for Python 3.11+
+try:
+    # Try to import from exceptiongroup package (for Python < 3.11)
+    from exceptiongroup import BaseExceptionGroup
+except ImportError:
+    try:
+        # Built-in in Python 3.11+
+        BaseExceptionGroup = BaseExceptionGroup
+    except NameError:
+        # Fallback for older Python versions
+        class BaseExceptionGroup(Exception):
+            def __init__(self, message, exceptions):
+                super().__init__(message)
+                self.exceptions = exceptions
+
 from dotenv import load_dotenv
 
 # 导入MCP警告屏蔽工具
@@ -161,8 +176,9 @@ class MCPManager:
         for server_name in mcp_servers:
             client = MCPClient()
             server = mcp_servers[server_name]
-            await client.connection_server(mcp_server_name=server_name,
-                                           mcp_server=server)  # Attempt to connect to the server
+            
+            # 使用重连机制进行初始化连接
+            await self._init_client_with_retry(client, server_name, server)
 
             client_id = server_name + '_' + str(
                 uuid.uuid4())  # To allow the same server name be used across different running agents
@@ -284,7 +300,9 @@ class MCPManager:
                 tool_args = json.loads(params)
                 # 使用保存的manager实例而不是获取新的单例
                 client = self._manager.clients[self.client_id]
-                future = asyncio.run_coroutine_threadsafe(client.execute_function(tool_name, tool_args), self._manager.loop)
+                # 从kwargs中获取max_retries参数，默认为10
+                max_retries = kwargs.get('max_retries', 10)
+                future = asyncio.run_coroutine_threadsafe(client.execute_function(tool_name, tool_args, max_retries), self._manager.loop)
                 try:
                     result = future.result()
                     return result
@@ -294,6 +312,37 @@ class MCPManager:
 
         ToolClass.__name__ = f'{register_name}_Class'
         return ToolClass()
+
+    async def _init_client_with_retry(self, client, server_name, server, max_retries=10):
+        """初始化客户端连接，带重试机制"""
+        last_exception = None
+        
+        for attempt in range(max_retries):
+            try:
+                await client.connection_server(mcp_server_name=server_name, mcp_server=server)
+                logger.info(f'Successfully connected to MCP server {server_name} on attempt {attempt + 1}')
+                return  # 连接成功，退出重试循环
+                
+            except Exception as e:
+                last_exception = e
+                logger.warning(f'Error during MCP server {server_name} connection (attempt {attempt + 1}/{max_retries}): {type(e).__name__}: {e}')
+                
+                if attempt < max_retries - 1:
+                    await self._handle_init_retry(attempt, server_name)
+                else:
+                    break
+        
+        # If all retries failed, raise the last exception
+        error_msg = f'Failed to connect to MCP server {server_name} after {max_retries} attempts. Last error: {last_exception}'
+        logger.error(error_msg)
+        raise last_exception
+
+    async def _handle_init_retry(self, attempt, server_name):
+        """处理初始化重试逻辑"""
+        # Wait before retry with exponential backoff
+        wait_time = min(2 ** attempt, 10)  # Cap at 10 seconds
+        logger.info(f'Retrying connection to MCP server {server_name} in {wait_time} seconds...')
+        await asyncio.sleep(wait_time)
 
     def shutdown(self):
         futures = []
@@ -364,8 +413,36 @@ class MCPClient:
                     self._session_context = ClientSession(read_stream, write_stream)
                     self.session = await self.exit_stack.enter_async_context(self._session_context)
                 else:
+                    # sse mode
+                    class FilteredSSEClient:
+                        def __init__(self, original_client):
+                            self._client = original_client
+                        
+                        async def __aenter__(self):
+                            streams = await self._client.__aenter__()
+                            original_read_stream = streams[0]
+                            
+                            # 创建一个过滤后的read stream
+                            async def filtered_read_stream():
+                                while True:
+                                    message = await original_read_stream()
+                                    # 过滤掉ping和validation相关的消息
+                                    if message and isinstance(message, dict):
+                                        if message.get('method') == 'ping':
+                                            continue
+                                        if 'validation errors' in str(message):
+                                            continue
+                                    yield message
+                            
+                            return (filtered_read_stream, streams[1])
+                        
+                        async def __aexit__(self, *args):
+                            await self._client.__aexit__(*args)
+
                     headers = mcp_server.get('headers', {'Accept': 'text/event-stream'})
                     self._streams_context = sse_client(url, headers, sse_read_timeout=sse_read_timeout)
+                    # original_client = sse_client(url, headers, sse_read_timeout=sse_read_timeout)
+                    # self._streams_context = FilteredSSEClient(original_client)
                     streams = await self.exit_stack.enter_async_context(self._streams_context)
                     self._session_context = ClientSession(*streams)
                     self.session = await self.exit_stack.enter_async_context(self._session_context)
@@ -394,26 +471,129 @@ class MCPClient:
             logger.warning(f'Failed in connecting to MCP server: {e}')
             raise e
 
-    async def reconnect(self):
+    async def reconnect(self, max_retries=10, retry_delay=2):
         # Create a new MCPClient and connect
         if self.client_id is None:
             raise RuntimeError(
                 'Cannot reconnect: client_id is None. This usually means the client was not properly registered in MCPManager.'
             )
-        new_client = MCPClient()
-        new_client.client_id = self.client_id
-        await new_client.connection_server(self._last_mcp_server_name, self._last_mcp_server)
-        return new_client
-
-    async def execute_function(self, tool_name, tool_args: dict):
-        from mcp.types import TextResourceContents
-
-        # Check if session is alive
+        
+        # Clean up the old client first to avoid resource conflicts
+        cleanup_success = False
         try:
-            await self.session.send_ping()
+            await self.cleanup()
+            cleanup_success = True
+            logger.info('Successfully cleaned up old client')
         except Exception as e:
-            # logger.info(f"Session is not alive, please increase 'sse_read_timeout' in the config, try reconnect: {e}")
-            # Auto reconnect
+            logger.warning(f'Error during old client cleanup: {e}')
+            # Cancel scope errors are critical and should be logged as warnings
+            if 'cancel scope' in str(e).lower():
+                logger.warning('Cancel scope error detected - this may indicate resource management issues')
+            # Continue with reconnection attempt even if cleanup failed
+        
+        # 确保有服务器连接信息
+        if not hasattr(self, '_last_mcp_server_name') or not hasattr(self, '_last_mcp_server'):
+            raise RuntimeError('Cannot reconnect: missing server connection information')
+        
+        last_exception = None
+        for attempt in range(max_retries):
+            try:
+                # Create new client in a clean context to avoid cancel scope issues
+                new_client = MCPClient()
+                new_client.client_id = self.client_id
+                
+                # Use a timeout for connection to prevent hanging
+                await asyncio.wait_for(
+                    new_client.connection_server(self._last_mcp_server_name, self._last_mcp_server),
+                    timeout=30.0  # 30 second timeout for connection
+                )
+                logger.info(f'Successfully reconnected on attempt {attempt + 1}')
+                return new_client
+            except asyncio.TimeoutError as e:
+                logger.info(f'Reconnect attempt {attempt + 1} timed out: {e}')
+                last_exception = e
+                if attempt < max_retries - 1:
+                    logger.info(f'Retrying in {retry_delay} seconds...')
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                    continue
+            except Exception as e:
+                logger.info(f'Reconnect attempt {attempt + 1} failed: {type(e).__name__} - {e}')
+                last_exception = e
+                
+                # Check if it's a timeout error and we should retry
+                if 'ConnectTimeout' in str(type(e)) or 'timeout' in str(e).lower():
+                    if attempt < max_retries - 1:
+                        logger.info(f'Retrying in {retry_delay} seconds...')
+                        await asyncio.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                        continue
+                else:
+                    # For non-timeout errors, don't retry
+                    break
+        
+        # If we get here, all retries failed
+        logger.info(f'All {max_retries} reconnect attempts failed')
+        raise last_exception
+
+    async def _retry_with_reconnect(self, operation_name, operation_func, max_retries=10):
+        """通用的重试和重连机制"""
+        last_exception = None
+        for attempt in range(max_retries):
+            try:
+                result = await operation_func()
+                return result
+            except Exception as e:
+                last_exception = e
+                logger.warning(f'Error during {operation_name} (attempt {attempt + 1}/{max_retries}): {type(e).__name__}: {e}')
+                
+                if attempt < max_retries - 1:
+                    await self._handle_retry_and_reconnect(attempt, operation_name)
+                else:
+                    break
+        
+        # If all retries failed, return error
+        error_msg = f'{operation_name} failed after {max_retries} attempts. Last error: {last_exception}'
+        logger.error(error_msg)
+        return error_msg
+
+    async def _handle_retry_and_reconnect(self, attempt, operation_name):
+        """处理重试和重连逻辑"""
+        # Wait before retry with exponential backoff
+        wait_time = min(2 ** attempt, 10)  # Cap at 10 seconds
+        logger.info(f'Retrying {operation_name} in {wait_time} seconds...')
+        await asyncio.sleep(wait_time)
+        
+        # Try to reconnect
+        try:
+            manager = MCPManager()
+            if self.client_id is not None:
+                # 创建新的客户端实例
+                new_client = await self.reconnect()
+                # 更新manager中的客户端引用
+                manager.clients[self.client_id] = new_client
+                # 更新当前实例的会话
+                self.session = new_client.session
+                self.exit_stack = new_client.exit_stack
+                logger.info(f'Successfully reconnected after {operation_name} failure, retrying {operation_name}...')
+            else:
+                logger.error('Cannot reconnect: client_id is None')
+                raise RuntimeError('Cannot reconnect: client_id is None')
+        except Exception as reconnect_error:
+            logger.error(f'Reconnect failed during {operation_name} retry: {reconnect_error}')
+            raise reconnect_error
+
+    async def execute_function(self, tool_name, tool_args: dict, max_retries=10):
+        from mcp.types import TextResourceContents
+        import httpx
+
+        # Check if session is alive with retry mechanism
+        async def ping_operation():
+            await self.session.send_ping()
+            return None  # Success, no return value needed
+        
+        ping_result = await self._retry_with_reconnect("session ping", ping_operation, max_retries)
+        if ping_result is not None:  # If ping failed
             try:
                 manager = MCPManager()
                 if self.client_id is not None:
@@ -424,20 +604,20 @@ class MCPClient:
                     return 'Session reconnect (client creation) exception: client_id is None'
             except Exception as e3:
                 logger.info(f'Reconnect (client creation) exception type: {type(e3)}, value: {repr(e3)}')
+                # Handle specific timeout errors more gracefully
+                if 'ConnectTimeout' in str(type(e3)) or 'timeout' in str(e3).lower():
+                    return f'Connection timeout during reconnect. Please check network connectivity and server availability: {e3}'
                 return f'Session reconnect (client creation) exception: {e3}'
-        if tool_name == 'list_resources':
-            try:
+        # Execute tool with retry mechanism
+        async def tool_operation():
+            if tool_name == 'list_resources':
                 list_resources = await self.session.list_resources()
                 if list_resources.resources:
                     resources_str = '\n\n'.join(str(resource) for resource in list_resources.resources)
                 else:
                     resources_str = 'No resources found'
                 return resources_str
-            except Exception as e:
-                logger.info(f'No list resources: {e}')
-                return f'Error: {e}'
-        elif tool_name == 'read_resource':
-            try:
+            elif tool_name == 'read_resource':
                 uri = tool_args.get('uri')
                 if not uri:
                     raise ValueError('URI is required for read_resource')
@@ -452,22 +632,39 @@ class MCPClient:
                     return '\n\n'.join(texts)
                 else:
                     return 'Failed to read resource'
-            except Exception as e:
-                logger.info(f'Failed to read resource: {e}')
-                return f'Error: {e}'
-        else:
-            response = await self.session.call_tool(tool_name, tool_args)
-            texts = []
-            for content in response.content:
-                if content.type == 'text':
-                    texts.append(content.text)
-            if texts:
-                return '\n\n'.join(texts)
             else:
-                return 'execute error'
+                response = await self.session.call_tool(tool_name, tool_args)
+                texts = []
+                for content in response.content:
+                    if content.type == 'text':
+                        texts.append(content.text)
+                if texts:
+                    return '\n\n'.join(texts)
+                else:
+                    return 'execute error'
+        
+        result = await self._retry_with_reconnect("tool execution", tool_operation, max_retries)
+        return result
 
     async def cleanup(self):
-        await self.exit_stack.aclose()
+        """Safely cleanup client resources with proper cancel scope handling."""
+        try:
+            # Use a timeout to prevent hanging
+            await asyncio.wait_for(self.exit_stack.aclose(), timeout=5.0)
+            logger.info('Client cleanup completed successfully')
+        except asyncio.TimeoutError:
+            logger.warning('Client cleanup timed out - forcing cleanup')
+            # Force cleanup if timeout occurs
+            try:
+                self.exit_stack.aclose()
+            except Exception as e:
+                logger.warning(f'Force cleanup failed: {e}')
+        except Exception as e:
+            logger.warning(f'Cleanup error: {e}')
+            # Re-raise cancel scope errors as they're critical
+            if 'cancel scope' in str(e).lower():
+                logger.error('Critical cancel scope error during cleanup - resource leak possible')
+            raise
 
 
 def _cleanup_mcp(_sig_num=None, _frame=None):
