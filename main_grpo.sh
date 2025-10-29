@@ -1,3 +1,8 @@
+#!/bin/bash
+# GRPO Training Script for RL-Factory
+# This script runs Group Relative Policy Optimization (GRPO) training 
+# for reinforcement learning agents with tool-calling capabilities.
+
 set -e -x
 
 export MODEL_PATH=/your/path/to/huggingface.co/Qwen/Qwen3-4B
