@@ -35,15 +35,15 @@ class TravelplannerEnv(Env):
     # NOTE: Add your reward calculation rules here!
     def _compute_score_with_rules(self, data, tokenizer, if_val=False):
         """
-        计算每个批次的奖励分数
+        Calculate reward scores for each batch
         
         Args:
-            data: 输入数据
-            tokenizer: 分词器
-            if_val: 是否为验证模式
+            data: Input data
+            tokenizer: Tokenizer
+            if_val: Whether it is validation mode
         
         Returns:
-            torch.Tensor: shape为[batch_size, 1]的奖励分数张量
+            torch.Tensor: Reward score tensor with shape [batch_size, 1]
         """
 
         def calculate_final_answer_reward(

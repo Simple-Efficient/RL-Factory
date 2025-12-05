@@ -382,7 +382,7 @@ def get_prompt(
     return prompt
 
 
-#生成functions用于测试
+# Generate functions for testing
 def _init_tool(function_list):
     function_map = {}
     if function_list:
