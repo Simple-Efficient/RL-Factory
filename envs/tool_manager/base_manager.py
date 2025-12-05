@@ -64,13 +64,13 @@ class ToolManager(ABC):
         return self._full_name(name)
 
     def get_tool(self, name_or_short_name: str):
-        """通过名称或简写获取工具
+        """Get tool by name or short name
         
         Args:
-            name_or_short_name: 工具名称或简写
+            name_or_short_name: Tool name or short name
             
         Returns:
-            找到的工具，如果没找到则返回None
+            The found tool, or None if not found
         """
         name_or_short_name = str(name_or_short_name)
         return self.tool_map.get(name_or_short_name, None)
