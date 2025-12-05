@@ -348,6 +348,7 @@ def get_prompt(
         if fn_choice == 'none':
             fncall_mode = False
     # Note: the preprocessor's behavior could change if it receives function_choice="none"
+    
     #print('checkfinal:{}'.format(messages))
     messages = _preprocess_messages(messages, lang=lang, generate_cfg=generate_cfg, functions=functions)
     messages = [format_as_text_message(msg, add_upload_info=False) for msg in messages]

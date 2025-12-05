@@ -65,7 +65,6 @@ class ToolManager(ABC):
 
     def get_tool(self, name_or_short_name: str):
         """Get tool by name or short name
-        
         Args:
             name_or_short_name: Tool name or short name
             

@@ -35,6 +35,7 @@ class TravelplannerEnv(Env):
     # NOTE: Add your reward calculation rules here!
     def _compute_score_with_rules(self, data, tokenizer, if_val=False):
         """
+        
         Calculate reward scores for each batch
         
         Args:
